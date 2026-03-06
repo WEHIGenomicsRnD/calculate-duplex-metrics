@@ -1,13 +1,17 @@
 Package: CalcDuplexMetrics
 Title: Calculate Duplex Metrics
 Version: 0.1.0
-Authors@R: person("Your", "Name", email = "your.email@example.com", role = c("aut", "cre"))
-Description: CLI tool for calculating duplex metrics from summarised read information
+Authors@R: person("WEHI Genomics R&D", role = c("aut", "cre"),
+    email = "genomics@wehi.edu.au")
+Description: CLI tool for calculating duplex sequencing QC metrics
+    (efficiency, drop-out rate, family statistics, GC bias) from
+    summarised read-bundle information files (.rinfo).
 License: MIT + file LICENSE
+URL: https://github.com/WEHIGenomicsRnD/calculate-duplex-metrics
+BugReports: https://github.com/WEHIGenomicsRnD/calculate-duplex-metrics/issues
 Encoding: UTF-8
-LazyData: true
 RoxygenNote: 7.2.3
-Depends: 
+Depends:
     R (>= 4.0.0)
 Imports:
     argparse,
@@ -16,7 +20,10 @@ Imports:
     seqinr,
     Rsamtools,
     Biostrings,
+    GenomeInfoDb,
     GenomicRanges,
-    IRanges
+    IRanges,
+    parallel
 Suggests:
+    devtools,
     testthat (>= 3.0.0)

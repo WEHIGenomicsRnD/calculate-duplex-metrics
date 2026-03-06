@@ -85,7 +85,7 @@ docker run --rm \
   -v "$(pwd)/data:/app/data" \
   -v "$(pwd)/out:/app/out" \
   calculate-duplex-metrics \
-  Rscript main.R \
+  calc-duplex-metrics \
   --input data/test.rinfo \
   --output out/default.csv
 ```
@@ -95,7 +95,9 @@ docker run --rm \
 
 ### Option B: Local Installation with `renv`
 
-This method uses the `renv` package to recreate the exact development environment, using the specific package versions defined in the `renv.lock` file.
+This method uses the `renv` package to recreate the exact development environment, using the specific package versions defined in the `renv.lock` file. This is the recommended approach for local development and contributions.
+
+> **Note:** `renv` mode uses `main.R` as the entrypoint (run from the project root). `main.R` is a local-only launcher that `source()`s the package files directly. The installed CLI (`calc-duplex-metrics`) is not available in this mode.
 
 #### Requirements
 - **R:** R version **4.4.1** 
@@ -162,7 +164,7 @@ Rscript main.R \
 
 ### Option D: Using Conda
 
-This method uses Conda to manage the R environment and dependencies.
+This method uses Conda to manage the R environment and dependencies, then installs the package into the environment so the `calc-duplex-metrics` CLI is available on `PATH`.
 
 #### Requirements
 - **Conda or Miniconda:** You must have Conda installed. You can download it from the [Conda website](https://docs.conda.io/en/latest/miniconda.html).
@@ -171,7 +173,7 @@ This method uses Conda to manage the R environment and dependencies.
 
 1.  **Clone the repository and navigate into it.**
 
-2.  **Create the conda environment:** This command reads the `env/environment.yaml` file and creates a new conda environment with all required packages.
+2.  **Create the conda environment:**
     ```bash
     conda env create -f env/environment.yaml
     ```
@@ -181,19 +183,47 @@ This method uses Conda to manage the R environment and dependencies.
     conda activate calculate-duplex-metrics
     ```
 
+4.  **Install the package and register the CLI:**
+    ```bash
+    bash env/install.sh
+    ```
+    This runs `R CMD INSTALL .` and symlinks `calc-duplex-metrics` into the conda environment's `bin/`.
+
 #### Default Usage Example
 
 ```bash
-Rscript --no-init-file main.R \
+calc-duplex-metrics \
   --input data/test.rinfo \
   --output out/default.csv
 ```
 
-**Important:** Always use `--no-init-file` when running with conda to skip the `.Rprofile` file that activates renv.
-
 To deactivate the conda environment when finished:
 ```bash
 conda deactivate
+```
+
+### Snakemake Integration
+
+When consuming this tool from a separate Snakemake pipeline, use either the conda environment or a pre-built container image.
+
+**With conda** (reference the environment file in the pipeline repo, run `bash env/install.sh` as a setup step):
+```python
+rule calculate_metrics:
+    input:  "data/{sample}.rinfo"
+    output: "results/{sample}_metrics.csv"
+    conda:  "envs/calc_duplex_metrics.yaml"
+    shell:
+        "calc-duplex-metrics --input {input} --output {output}"
+```
+
+**With a container** (Docker or Singularity):
+```python
+rule calculate_metrics:
+    input:  "data/{sample}.rinfo"
+    output: "results/{sample}_metrics.csv"
+    container: "docker://ghcr.io/wehigenomicsrnd/calculate-duplex-metrics:latest"
+    shell:
+        "calc-duplex-metrics --input {input} --output {output}"
 ```
 
 
@@ -316,19 +346,26 @@ NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,paired_and_gt1,8152302
 
 #### Sanity check the CLI
 ```bash
-Rscript main.R --help
+# Installed package (Docker / conda):
+calc-duplex-metrics --help
 
+# Local renv development:
+Rscript main.R --help
 ```
 
-## Testing 
+## Testing
 Test that functions return valid numeric values, correct handling of edge cases (NA, zero reads, invalid inputs) and presence of expected metrics names.
 
 #### Requirements
-Packages: testthat
+Packages: `devtools`, `testthat`
 
 #### To run all tests
 From the project root run:
 ```bash
 Rscript tests/testthat.R
+```
 
+#### To run a single test file
+```bash
+Rscript -e "devtools::load_all(); testthat::test_file('tests/testthat/test-metrics.R')"
 ```

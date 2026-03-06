@@ -8,9 +8,6 @@
 #   main.R -> cli.R -> calculate.R
 #
 # Responsibilities:
-#   - Loads the core metric calculation functions
-#     (R/calculate_nanoseq_functions.R)
-
 #   - Resolves requested metric groups and individual metrics based on
 #     user input
 #   - Determines whether GC metrics should be computed based on the
@@ -18,6 +15,13 @@
 #   - Supports both single-sample and multi-sample inputs
 #   - Coordinates serial or parallel execution of metric calculation
 #   - Writes results to a tidy CSV with one row per sample–metric pair
+#
+# When the package is installed, all R/*.R files (including
+# calculate_nanoseq_functions.R) are compiled into the package
+# namespace — no source() calls are needed. When running locally from
+# the project root via main.R (renv), calculate.R is sourced by
+# cli.R which is sourced by main.R; calculate_nanoseq_functions.R is
+# sourced explicitly below for that local-only path.
 #
 # All helper functions in this file focus on coordinating metric
 # computation. They do not perform command-line argument parsing;
@@ -36,7 +40,7 @@ suppressPackageStartupMessages({
 
 
 # ------------------------------------------------------------------
-# CHANGED - Helper functions: no CLI argument parsing or validation, 
+# Helper functions: no CLI argument parsing or validation;
 # inputs are assumed to be validated upstream.
 # ------------------------------------------------------------------
 
@@ -156,9 +160,10 @@ calc_duplex_metrics_many_files_df <- function(
 
 
 # ------------------------------------------------------------------
-# CHANGED - process_data now resolves metric selection, GC logic,
-# and loads metric calculation functions. Helpers are pure and only compute metrics.
-# ------------------------------------------------------------------ 
+# process_data resolves metric selection, gates GC logic, and
+# dispatches to single- or multi-file helpers. Helpers are pure and
+# only compute metrics.
+# ------------------------------------------------------------------
 
 process_data <- function(
     input, output,
@@ -167,34 +172,26 @@ process_data <- function(
     skips = 5,
     ref_fasta = "",
     metrics = "all",
-    cores = 1,
-    func_file = file.path("R", "calculate_nanoseq_functions.R")
+    cores = 1
 ) {
   # validate input
   if (is.null(input) || length(input) == 0) {
     return(list(success = FALSE, error = "No input files provided"))
   }
-  
+
   missing <- input[!file.exists(input)]
   if (length(missing) > 0) {
     return(list(success = FALSE, error = paste0("Input file(s) not found:\n", paste(missing, collapse = "\n"))))
   }
-  
+
   if (is.na(cores) || cores < 1) {
     return(list(success = FALSE, error = "--cores must be >= 1"))
   }
-  
+
   odir <- dirname(output)
   if (!dir.exists(odir)) dir.create(odir, recursive = TRUE, showWarnings = FALSE)
-  
-  # CHANGED - Load calculation functions once
-  source_err <- tryCatch({ source(func_file); NULL }, error = function(e) e)
-  if (inherits(source_err, "error")) {
-    return(list(success = FALSE, error = paste0("Failed to source ", func_file, ": ", source_err$message)))
-  }
-  
-  
-  # CHANGED - Resolve metric selection once
+
+  # Resolve metric selection once
   sel <- resolve_metric_selection(metrics)
   groups_to_compute <- sel$groups
   individual_to_compute <- sel$individual

@@ -3,11 +3,18 @@
 # ------------------------------------------------------------------
 # main.R
 #
-# CLI entrypoint for the duplex metric calculation tool.
+# LOCAL DEVELOPMENT ENTRYPOINT (renv / project-root only).
 #
-# This script initialises the runtime environment, ensures required
-# packages are available, sources the CLI implementation, and invokes
-# the `main()` function defined in cli.R.
+# This script is for running the tool directly from the project root
+# without installing the package (e.g. via renv). It sources R/*.R
+# using relative paths that only resolve from the project root.
+#
+# When the package is installed (R CMD INSTALL, Docker, conda), use
+# the installed CLI instead:
+#   calc-duplex-metrics --input <file> --output <file>
+#
+# The installed entry point is at:
+#   inst/exec/calc-duplex-metrics  (within the package source)
 # ------------------------------------------------------------------
 
 
@@ -29,6 +36,9 @@ suppressPackageStartupMessages({
   library(argparse)
 })
 
-# Source CLI and run 
+# Source all package files explicitly for local renv use
+# (In the installed package these are loaded automatically by R)
+source("R/calculate_nanoseq_functions.R")
+source("R/calculate.R")
 source("R/cli.R")
 main()

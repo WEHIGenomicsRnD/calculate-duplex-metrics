@@ -2,38 +2,32 @@
 ARG R_VER=4.4.1
 FROM rocker/r-ver:${R_VER}
 
-# Install system dependencies  + Python (argparse/json are stdlib modules)
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libcurl4-openssl-dev libssl-dev libxml2-dev \
     python3 python3-pip python3-venv python3-distutils \
     zlib1g-dev \
-    liblzma-dev \ 
+    liblzma-dev \
     libbz2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Hint to findpython (optional but helpful)
+# Hint to findpython (required by argparse)
 ENV PYTHON=/usr/bin/python3
 ENV PYTHON3=/usr/bin/python3
 
-# Set working directory
 WORKDIR /app
 
-# Keep renv's library outside the project so mounts don't hide it
-ENV RENV_PATHS_LIBRARY=/opt/renv/library
-RUN mkdir -p /opt/renv/library
+# Install R package dependencies first (improves layer caching)
+COPY DESCRIPTION .
+RUN R -q -e "install.packages('remotes', repos='https://cloud.r-project.org')" \
+ && R -q -e "remotes::install_deps('.', repos='https://cloud.r-project.org', upgrade='never')"
 
-# Copy renv infra FIRST
-COPY renv.lock ./
-COPY renv/ ./renv/
-COPY .Rprofile ./
-
-# Restore R packages; fail build if argparse didn't install
-RUN R -q -e "options(repos=c(CRAN='https://cloud.r-project.org')); install.packages('renv')" \
- && R -q -e "renv::restore(prompt = FALSE)"
-
-# Copy the rest
+# Copy full source and install the package
 COPY . .
+RUN R CMD INSTALL . \
+ && ln -s \
+    "$(Rscript --vanilla -e 'cat(system.file("exec", "calc-duplex-metrics", package="CalcDuplexMetrics"))')" \
+    /usr/local/bin/calc-duplex-metrics
 
-# Set default command to bash for flexibility
 CMD ["/bin/bash"]

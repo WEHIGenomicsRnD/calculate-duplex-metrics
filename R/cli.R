@@ -7,11 +7,10 @@
 # arguments, resolves input files, and delegates computation to
 # `process_data()` in calculate.R.
 #
-# This script is executed via `main.R`.
+# When the package is installed, this file is part of the package
+# namespace. When running locally from the project root (renv), it
+# is sourced by main.R.
 # ------------------------------------------------------------------
-
-
-source("R/calculate.R")
 
 
 # Main CLI function

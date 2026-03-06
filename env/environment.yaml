@@ -4,13 +4,15 @@ channels:
   - bioconda
 dependencies:
   - r-base =4.4.1
+  - r-remotes
+  - r-devtools
   - r-argparse
   - r-data.table
   - r-magrittr
   - r-seqinr
+  - bioconductor-genomeinfodb
   - bioconductor-rsamtools
   - bioconductor-biostrings
   - bioconductor-genomicranges
   - bioconductor-iranges
   - r-testthat
-  - r-devtools
