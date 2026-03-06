@@ -1,12 +1,20 @@
 Package: CalcDuplexMetrics
 Title: Calculate Duplex Metrics
 Version: 0.1.0
-Authors@R: person("WEHI Genomics R&D", role = c("aut", "cre"),
-    email = "genomics@wehi.edu.au")
+Authors@R: c(
+    person("Marek Cmero", role = c("aut", "cre", "ths"), email = "cmerom@unimelb.edu.au"),
+    person("WEHI Genomics R&D", role = c("cph")),
+    person("Rowland Mosbergen", role = c("ths")),
+    person("Dylan Dinh", role = c("aut")),
+    person("Zhi Hui Lu", role = c("aut")),
+    person("Pulitha Wimalendra", role = c("aut")),
+    person("Christopher Lubega", role = c("aut")),
+    person("Matteo Venturini", role = c("aut")),
+    person("Uditi (Joy) Shah", role = c("aut")))
 Description: CLI tool for calculating duplex sequencing QC metrics
-    (efficiency, drop-out rate, family statistics, GC bias) from
+    (efficiency, drop-out rate, family statistics and GC bias) from
     summarised read-bundle information files (.rinfo).
-License: MIT + file LICENSE
+License: AGPL-3
 URL: https://github.com/WEHIGenomicsRnD/calculate-duplex-metrics
 BugReports: https://github.com/WEHIGenomicsRnD/calculate-duplex-metrics/issues
 Encoding: UTF-8
