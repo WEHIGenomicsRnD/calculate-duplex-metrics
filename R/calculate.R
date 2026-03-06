@@ -19,8 +19,8 @@
 # When the package is installed, all R/*.R files (including
 # calculate_nanoseq_functions.R) are compiled into the package
 # namespace — no source() calls are needed. When running locally from
-# the project root via main.R (renv), calculate.R is sourced by
-# cli.R which is sourced by main.R; calculate_nanoseq_functions.R is
+# the project root via main.R (renv), main.R sources calculate.R
+# directly (and also sources cli.R); calculate_nanoseq_functions.R is
 # sourced explicitly below for that local-only path.
 #
 # All helper functions in this file focus on coordinating metric
