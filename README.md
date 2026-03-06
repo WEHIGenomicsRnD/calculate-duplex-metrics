@@ -202,31 +202,6 @@ To deactivate the conda environment when finished:
 conda deactivate
 ```
 
-### Snakemake Integration
-
-When consuming this tool from a separate Snakemake pipeline, use either the conda environment or a pre-built container image.
-
-**With conda** (reference the environment file in the pipeline repo, run `bash env/install.sh` as a setup step):
-```python
-rule calculate_metrics:
-    input:  "data/{sample}.rinfo"
-    output: "results/{sample}_metrics.csv"
-    conda:  "envs/calc_duplex_metrics.yaml"
-    shell:
-        "calc-duplex-metrics --input {input} --output {output}"
-```
-
-**With a container** (Docker or Singularity):
-```python
-rule calculate_metrics:
-    input:  "data/{sample}.rinfo"
-    output: "results/{sample}_metrics.csv"
-    container: "docker://ghcr.io/wehigenomicsrnd/calculate-duplex-metrics:latest"
-    shell:
-        "calc-duplex-metrics --input {input} --output {output}"
-```
-
-
 ## Additional Usage Examples
 
 
