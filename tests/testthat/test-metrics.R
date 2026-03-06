@@ -4,13 +4,11 @@ library(Rsamtools)
 library(GenomicRanges)
 library(Biostrings)
 
-source("../../R/calculate_nanoseq_functions.R")
-
 # ------------------------------------------------------------------------------
 # Load test file
 # ------------------------------------------------------------------------------
 
-rinfo <- fread("../../data/NanoMB1Rep1_test_10k.txt")
+rinfo <- fread(test_path("testdata", "NanoMB1Rep1_test_10k.txt"))
 
 rinfo_empty <- rinfo[0,]
 rlen  <- 100

@@ -1,4 +1,10 @@
 ^renv$
 ^renv\.lock$
+^\.Rprofile$
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^main\.R$
+^env$
+^Dockerfile$
+^data$
+^README\.md$
