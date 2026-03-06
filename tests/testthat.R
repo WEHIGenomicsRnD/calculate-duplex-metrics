@@ -1,4 +1,4 @@
+devtools::load_all(quiet = TRUE)
 library(testthat)
-library(CalcDuplexMetrics)
 
-test_check("CalcDuplexMetrics")
+test_dir("tests/testthat")
