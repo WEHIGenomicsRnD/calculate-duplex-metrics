@@ -21,7 +21,7 @@ WORKDIR /app
 # Install R package dependencies first (improves layer caching)
 COPY DESCRIPTION .
 RUN R -q -e "install.packages(c('remotes','BiocManager'), repos='https://cloud.r-project.org')" \
- && R -q -e "remotes::install_deps('.', repos=BiocManager::repositories(), upgrade='never')"
+ && R -q -e "remotes::install_deps('.', dependencies=TRUE, repos=BiocManager::repositories(), upgrade='never')"
 
 # Copy full source and install the package
 COPY . .
