@@ -1,0 +1,31 @@
+name: CI - Docker Build and Test
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: false
+        tags: calculate-duplex-metrics-test:latest
+        load: true
+
+    - name: Run R tests
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/workspace \
+          -w /workspace calculate-duplex-metrics-test:latest Rscript --no-init-file tests/testthat.R
