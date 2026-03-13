@@ -28,4 +28,4 @@ jobs:
     - name: Run R tests
       run: |
         docker run --rm -v ${{ github.workspace }}:/workspace \
-          -w /workspace calculate-duplex-metrics-test:latest Rscript tests/testthat.R
+          -w /workspace calculate-duplex-metrics-test:latest Rscript --no-init-file tests/testthat.R
