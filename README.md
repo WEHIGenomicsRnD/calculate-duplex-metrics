@@ -204,7 +204,6 @@ conda deactivate
 
 ## Additional Usage Examples
 
-
 #### Example: default mode with GC enabled (requires reference genome)
 
 Note: The reference genome FASTA is user-provided and not included
@@ -215,7 +214,6 @@ Rscript main.R \
   --input data/NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001.txt \
   --output out/default_with_gc.csv \
   --ref_fasta ref/Escherichia_coli_ATCC_10798.fasta
-
 ```
 
 #### Example: select individual metrics only
@@ -254,7 +252,6 @@ Rscript main.R \
   --output out/all_samples_metrics.csv \
   --metrics family \
   --cores 2
-
 ```
 
 

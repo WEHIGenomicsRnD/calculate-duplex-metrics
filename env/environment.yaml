@@ -16,3 +16,4 @@ dependencies:
   - bioconductor-genomicranges
   - bioconductor-iranges
   - r-testthat
+  - r-r.utils

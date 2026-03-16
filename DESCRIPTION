@@ -31,9 +31,9 @@ Imports:
     GenomeInfoDb,
     GenomicRanges,
     IRanges,
-    parallel
+    parallel,
+    R.utils
 Suggests:
     devtools,
     testthat (>= 3.0.0),
-    withr,
-    R.utils
+    withr
