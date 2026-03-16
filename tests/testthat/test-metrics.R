@@ -92,12 +92,15 @@ test_that("calculate_missed_fraction returns NA with empty input", {
 # ------------------------------------------------------------------------------
 
 test_that("calculate_gc returns NA metrics if reference genome missing", {
-  gc <- calculate_gc(
-    rinfo,
-    rlen = rlen,
-    skips = skips,
-    genomeFile = NULL,
-    genome_max = NULL
+  expect_warning(
+    gc <- calculate_gc(
+      rinfo,
+      rlen = rlen,
+      skips = skips,
+      genomeFile = NULL,
+      genome_max = NULL
+    ),
+    "genome_max is NULL or empty"
   )
   expect_named(gc, c("gc_single","gc_both","gc_deviation"))
   expect_true(all(is.na(gc)))
@@ -114,7 +117,9 @@ test_that("calculate_gc returns expected GC metrics when reference is provided",
  genomeFile <- FaFile(fa)
  genome_max <- seqlengths(genomeFile)
 
- gc <- calculate_gc(rinfo,rlen = rlen, skips = skips, genomeFile = genomeFile, genome_max = genome_max)
+ gc <- suppressWarnings(
+   calculate_gc(rinfo,rlen = rlen, skips = skips, genomeFile = genomeFile, genome_max = genome_max)
+ )
   expect_named(gc, c("gc_single", "gc_both", "gc_deviation"))
   expect_equal(gc[["gc_single"]], 0.397, tolerance = 1e-3)
   expect_equal(gc[["gc_both"]], 0.398, tolerance = 1e-3)

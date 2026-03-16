@@ -110,17 +110,43 @@ calculate_gc <- function(
   colnames(rbs)[5:6] <- c("plus", "minus")
   
   if (is.null(genome_max) || length(genome_max) == 0) {
+    warning("calculate_gc: genome_max is NULL or empty — no chromosome lengths available. Returning NA.")
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
+
+  n_before <- nrow(rbs)
   # remove any chroms not in the sizes vector
   rbs <- rbs[rbs$chrom %in% names(genome_max), ]
+  if (nrow(rbs) == 0) {
+    warning("calculate_gc: no records remain after filtering for chromosomes present in ref_fasta. ",
+            "Check that chromosome names in the input file match those in the reference FASTA.")
+    return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
+  }
+  if (nrow(rbs) < n_before) {
+    warning(sprintf(
+      "calculate_gc: %d/%d records removed — chromosome not found in ref_fasta. ",
+      n_before - nrow(rbs), n_before
+    ), "Check chromosome name formatting between input and reference.")
+  }
 
   # compute end and drop invalid ranges early
   rbs$end <- rbs$pos + rlen - skips
 
+  n_before <- nrow(rbs)
   rbs <- rbs[!is.na(rbs$pos) & !is.na(rbs$end) & rbs$pos > 0 & rbs$end >= rbs$pos, ]
+  if (nrow(rbs) == 0) {
+    warning("calculate_gc: no records remain after removing invalid/NA positions. Returning NA.")
+    return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
+  }
+  if (nrow(rbs) < n_before) {
+    warning(sprintf(
+      "calculate_gc: %d/%d records removed due to invalid or NA position values.",
+      n_before - nrow(rbs), n_before
+    ))
+  }
 
   # remove records with mate positions exceeding genome max
+  n_before <- nrow(rbs)
   if (length(genome_max) > 1) {
     for (i in seq_along(genome_max)) {
       chrom <- names(genome_max)[i]
@@ -130,9 +156,33 @@ calculate_gc <- function(
   } else {
     rbs <- rbs[rbs$end <= genome_max, ]
   }
+  if (nrow(rbs) == 0) {
+    warning("calculate_gc: no records remain after removing reads that extend beyond chromosome ends. ",
+            "Check that --rlen and --skips are correct for this data.")
+    return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
+  }
+  if (nrow(rbs) < n_before) {
+    warning(sprintf(
+      "calculate_gc: %d/%d records removed — read end exceeds chromosome length. ",
+      n_before - nrow(rbs), n_before
+    ), "Consider checking --rlen and --skips.")
+  }
 
   # remove records with large distances between mates
+  n_before <- nrow(rbs)
   rbs <- rbs[(rbs$end - rbs$pos) < max_gap, ]
+  if (nrow(rbs) == 0) {
+    warning(sprintf(
+      "calculate_gc: no records remain after removing reads with gap >= %d. Returning NA.", max_gap
+    ))
+    return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
+  }
+  if (nrow(rbs) < n_before) {
+    warning(sprintf(
+      "calculate_gc: %d/%d records removed — gap between read start and end >= %d (max_gap).",
+      n_before - nrow(rbs), n_before, max_gap
+    ))
+  }
 
   # remove zero-records (redundant but safe)
   rbs <- rbs[rbs$pos != 0, ]
@@ -144,9 +194,12 @@ calculate_gc <- function(
   rbs_single <- rbs[which(rbs$minus + rbs$plus > 4 &
                           (rbs$minus == 0 | rbs$plus == 0)), ]
 
-
   # guard: not enough RBs
   if (nrow(rbs_both) == 0 || nrow(rbs_single) == 0) {
+    warning(sprintf(
+      "calculate_gc: not enough read bundles after splitting — %d duplex (both-strand) and %d single-strand bundles found. ",
+      nrow(rbs_both), nrow(rbs_single)
+    ), "GC metrics require both duplex and single-strand bundles. Returning NA.")
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
 
@@ -172,6 +225,10 @@ calculate_gc <- function(
   seqs_single <- seqs_single[!is.na(seqs_single)]
 
   if (length(seqs_both) == 0 || length(seqs_single) == 0) {
+    warning(sprintf(
+      "calculate_gc: no sequences extracted from ref_fasta (%d duplex, %d single-strand). ",
+      length(seqs_both), length(seqs_single)
+    ), "Check that the reference FASTA is indexed and chromosome names match.")
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
 
@@ -180,6 +237,7 @@ calculate_gc <- function(
 
   if (is.na(seqs_both_collapsed) || is.na(seqs_single_collapsed) ||
       nchar(seqs_both_collapsed) == 0 || nchar(seqs_single_collapsed) == 0) {
+    warning("calculate_gc: collapsed sequence strings are empty or NA after extraction. Returning NA.")
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
 
