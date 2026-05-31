@@ -25,7 +25,8 @@ missing_packages <-
 
 if (length(missing_packages) > 0) {
   stop(
-    "Missing required package(s): ", paste(missing_packages, collapse = ", "), "\n",
+    "Missing required package(s): ",
+    paste(missing_packages, collapse = ", "), "\n",
     "Please run renv::restore() before running this script.",
     call. = FALSE
   )

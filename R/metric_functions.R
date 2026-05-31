@@ -14,7 +14,9 @@
 # Metric selection, input validation, and single-/multi-file input
 # are handled by higher-level scripts (main.R, cli.R, calculate.R).
 #
-# Code obtained from https://github.com/WEHIGenomicsRnD/G000204_duplex/blob/main/code/efficiency_nanoseq_functions.R
+# Code obtained from:
+# https://github.com/WEHIGenomicsRnD/G000204_duplex/blob/main/code/
+# efficiency_nanoseq_functions.R
 # ------------------------------------------------------------------
 
 suppressPackageStartupMessages({
@@ -34,22 +36,22 @@ suppressPackageStartupMessages({
 
 # Fraction of total reads that are from singleton read bundles
 calculate_singletons <- function(rbs) {
-    total_reads <- sum(rbs$x, rbs$y)
-    singletons <- sum(rbs$x == 1 & rbs$y == 0 | rbs$x == 0 & rbs$y == 1)
-    frac_singletons <- singletons / total_reads
-    return(frac_singletons)
+  total_reads <- sum(rbs$x, rbs$y)
+  singletons <- sum(rbs$x == 1 & rbs$y == 0 | rbs$x == 0 & rbs$y == 1)
+  singletons / total_reads
 }
 
 calculate_family_stats <- function(rbs) {
-    rbs$size <- rbs$x + rbs$y
-    return(c(total_families = nrow(rbs),
-             family_mean = mean(rbs$size),
-             family_median = median(rbs$size),
-             family_max = max(rbs$size),
-             families_gt1 = sum(rbs$x > 1 | rbs$y > 1),
-             single_families = sum(rbs$x == 1 & rbs$y == 0 | rbs$x == 0 & rbs$y == 1),
-             paired_families = sum(rbs$x > 0 & rbs$y > 0),
-             paired_and_gt1 = sum(rbs$x > 1 & rbs$y > 1)))
+  rbs$size <- rbs$x + rbs$y
+  c(total_families = nrow(rbs),
+    family_mean = mean(rbs$size),
+    family_median = median(rbs$size),
+    family_max = max(rbs$size),
+    families_gt1 = sum(rbs$x > 1 | rbs$y > 1),
+    single_families = sum(rbs$x == 1 & rbs$y == 0 | rbs$x == 0 & rbs$y == 1),
+    paired_families = sum(rbs$x > 0 & rbs$y > 0),
+    paired_and_gt1 = sum(rbs$x > 1 & rbs$y > 1)
+  )
 }
 
 
@@ -73,24 +75,25 @@ calculate_efficiency <- function(rbs, rlen, skips) {
 # original strands beyond what would be expected under random sampling
 # (assuming a binomial process).
 calculate_missed_fraction <- function(rbs) {
-    rbs <- data.frame(rbs)
-    rbs$size <- rbs$x + rbs$y
-    rbs$size <- pmin(rbs$size, 10)
-    total_missed <- 0
-    for(size in c(4:10)) {
-        exp_orphan <- (0.5 ** size) * 2
-        total_this_size = nrow(rbs[which(rbs$size == size),])
-        if(total_this_size > 0) {
-            with_both_strands <- nrow(rbs[which(rbs$size == size & rbs$x > 0 & rbs$y > 0),])
-            obs_orphan <- 1 - with_both_strands / total_this_size
-            missed <- (obs_orphan - exp_orphan) * total_this_size
-            total_missed <- total_missed + missed
-        }
+  rbs <- data.frame(rbs)
+  rbs$size <- rbs$x + rbs$y
+  rbs$size <- pmin(rbs$size, 10)
+  total_missed <- 0
+  for (size in c(4:10)) {
+    exp_orphan <- (0.5 ** size) * 2
+    total_this_size <- nrow(rbs[which(rbs$size == size), ])
+    if (total_this_size > 0) {
+      with_both_strands <- nrow(
+        rbs[which(rbs$size == size & rbs$x > 0 & rbs$y > 0), ]
+      )
+      obs_orphan <- 1 - with_both_strands / total_this_size
+      missed <- (obs_orphan - exp_orphan) * total_this_size
+      total_missed <- total_missed + missed
     }
-    den <- nrow(rbs[rbs$size >= 4, , drop = FALSE])
-    if (den == 0) return(NA_real_)
-    total_missed_fraction = total_missed / den
-    return(total_missed_fraction)
+  }
+  den <- nrow(rbs[rbs$size >= 4, , drop = FALSE])
+  if (den == 0) return(NA_real_)
+  total_missed / den
 }
 
 
@@ -98,19 +101,22 @@ calculate_missed_fraction <- function(rbs) {
 # The GC content of RBs with both strands and with just one strand.
 # I return the difference between the two values.
 calculate_gc <- function(
-    rbs,
-    rlen,
-    skips,
-    genome_file,
-    genome_max,
-    sample_n = 10000,
-    max_gap = 100000
+  rbs,
+  rlen,
+  skips,
+  genome_file,
+  genome_max,
+  sample_n = 10000,
+  max_gap = 100000
 ) {
   rbs <- data.frame(rbs)
   colnames(rbs)[5:6] <- c("plus", "minus")
-  
+
   if (is.null(genome_max) || length(genome_max) == 0) {
-    warning("calculate_gc: genome_max is NULL or empty — no chromosome lengths available. Returning NA.")
+    warning(paste0(
+      "calculate_gc: genome_max is NULL or empty - ",
+      "no chromosome lengths available. Returning NA."
+    ))
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
 
@@ -118,30 +124,46 @@ calculate_gc <- function(
   # remove any chroms not in the sizes vector
   rbs <- rbs[rbs$chrom %in% names(genome_max), ]
   if (nrow(rbs) == 0) {
-    warning("calculate_gc: no records remain after filtering for chromosomes present in ref_fasta. ",
-            "Check that chromosome names in the input file match those in the reference FASTA.")
+    warning(paste0(
+      "calculate_gc: no records remain after filtering for ",
+      "chromosomes present in ref_fasta. ",
+      "Check that chromosome names in the input file ",
+      "match those in the reference FASTA."
+    ))
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
   if (nrow(rbs) < n_before) {
-    warning(sprintf(
-      "calculate_gc: %d/%d records removed — chromosome not found in ref_fasta. ",
-      n_before - nrow(rbs), n_before
-    ), "Check chromosome name formatting between input and reference.")
+    warning(paste0(
+      sprintf(
+        "calculate_gc: %d/%d records removed - ",
+        n_before - nrow(rbs), n_before
+      ),
+      "chromosome not found in ref_fasta. ",
+      "Check chromosome name formatting ",
+      "between input and reference."
+    ))
   }
 
   # compute end and drop invalid ranges early
   rbs$end <- rbs$pos + rlen - skips
 
   n_before <- nrow(rbs)
-  rbs <- rbs[!is.na(rbs$pos) & !is.na(rbs$end) & rbs$pos > 0 & rbs$end >= rbs$pos, ]
+  rbs <- rbs[!is.na(rbs$pos) &
+               !is.na(rbs$end) & rbs$pos > 0 & rbs$end >= rbs$pos, ]
   if (nrow(rbs) == 0) {
-    warning("calculate_gc: no records remain after removing invalid/NA positions. Returning NA.")
+    warning(paste0(
+      "calculate_gc: no records remain after removing ",
+      "invalid/NA positions. Returning NA."
+    ))
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
   if (nrow(rbs) < n_before) {
-    warning(sprintf(
-      "calculate_gc: %d/%d records removed due to invalid or NA position values.",
-      n_before - nrow(rbs), n_before
+    warning(paste0(
+      sprintf(
+        "calculate_gc: %d/%d records removed due to ",
+        n_before - nrow(rbs), n_before
+      ),
+      "invalid or NA position values."
     ))
   }
 
@@ -157,30 +179,50 @@ calculate_gc <- function(
     rbs <- rbs[rbs$end <= genome_max, ]
   }
   if (nrow(rbs) == 0) {
-    warning("calculate_gc: no records remain after removing reads that extend beyond chromosome ends. ",
-            "Check that --rlen and --skips are correct for this data.")
+    warning(paste0(
+      "calculate_gc: no records remain after removing reads ",
+      "that extend beyond chromosome ends. ",
+      "Check that --rlen and --skips are correct ",
+      "for this data."
+    ))
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
   if (nrow(rbs) < n_before) {
-    warning(sprintf(
-      "calculate_gc: %d/%d records removed — read end exceeds chromosome length. ",
-      n_before - nrow(rbs), n_before
-    ), "Consider checking --rlen and --skips.")
+    warning(paste0(
+      sprintf(
+        "calculate_gc: %d/%d records removed - ",
+        n_before - nrow(rbs), n_before
+      ),
+      "read end exceeds chromosome length. ",
+      "Consider checking --rlen and --skips."
+    ))
   }
 
   # remove records with large distances between mates
   n_before <- nrow(rbs)
   rbs <- rbs[(rbs$end - rbs$pos) < max_gap, ]
   if (nrow(rbs) == 0) {
-    warning(sprintf(
-      "calculate_gc: no records remain after removing reads with gap >= %d. Returning NA.", max_gap
+    warning(paste0(
+      sprintf(
+        "calculate_gc: no records remain after removing ",
+        "reads with gap >= %d. ",
+        max_gap
+      ),
+      "Returning NA."
     ))
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
   if (nrow(rbs) < n_before) {
-    warning(sprintf(
-      "calculate_gc: %d/%d records removed — gap between read start and end >= %d (max_gap).",
-      n_before - nrow(rbs), n_before, max_gap
+    warning(paste0(
+      sprintf(
+        "calculate_gc: %d/%d records removed - ",
+        n_before - nrow(rbs), n_before
+      ),
+      sprintf(
+        "gap between read start and end >= %d ",
+        max_gap
+      ),
+      "(max_gap)."
     ))
   }
 
@@ -189,46 +231,66 @@ calculate_gc <- function(
 
   # split RBs
   rbs_both <- rbs[which(rbs$minus + rbs$plus >= 4 &
-                        rbs$minus >= 2 &
-                        rbs$plus  >= 2), ]
+                          rbs$minus >= 2 &
+                          rbs$plus  >= 2), ]
   rbs_single <- rbs[which(rbs$minus + rbs$plus > 4 &
-                          (rbs$minus == 0 | rbs$plus == 0)), ]
+                            (rbs$minus == 0 | rbs$plus == 0)), ]
 
   # guard: not enough RBs
   if (nrow(rbs_both) == 0 || nrow(rbs_single) == 0) {
-    warning(sprintf(
-      "calculate_gc: not enough read bundles after splitting — %d duplex (both-strand) and %d single-strand bundles found. ",
-      nrow(rbs_both), nrow(rbs_single)
-    ), "GC metrics require both duplex and single-strand bundles. Returning NA.")
+    warning(paste0(
+      sprintf(
+        "calculate_gc: not enough read bundles after splitting - ",
+        nrow(rbs_both), nrow(rbs_single)
+      ),
+      sprintf(
+        "%d duplex (both-strand) and %d single-strand ",
+        nrow(rbs_both), nrow(rbs_single)
+      ),
+      "bundles found. ",
+      "GC metrics require both duplex and ",
+      "single-strand bundles. Returning NA."
+    ))
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
 
   # sample
   rbs_both <- rbs_both[sample(seq_len(nrow(rbs_both)),
-                               min(sample_n, nrow(rbs_both))), ]
+                              min(sample_n, nrow(rbs_both))), ]
   rbs_single <- rbs_single[sample(seq_len(nrow(rbs_single)),
-                                   min(sample_n, nrow(rbs_single))), ]
+                                  min(sample_n, nrow(rbs_single))), ]
 
   # extract sequences
-  seqs_both <- GRanges(rbs_both$chrom,
-                       IRanges(start = rbs_both$pos,
-                               end   = rbs_both$end)) %>%
-    scanFa(genome_file, .) %>% as.vector()
+  seqs_both <- scanFa(
+    genome_file,
+    GRanges(
+      rbs_both$chrom,
+      IRanges(start = rbs_both$pos, end = rbs_both$end)
+    )
+  ) |> as.vector()
 
-  seqs_single <- GRanges(rbs_single$chrom,
-                         IRanges(start = rbs_single$pos,
-                                 end   = rbs_single$end)) %>%
-    scanFa(genome_file, .) %>% as.vector()
+  seqs_single <- scanFa(
+    genome_file,
+    GRanges(
+      rbs_single$chrom,
+      IRanges(start = rbs_single$pos, end = rbs_single$end)
+    )
+  ) |> as.vector()
 
   # drop NA sequences
   seqs_both   <- seqs_both[!is.na(seqs_both)]
   seqs_single <- seqs_single[!is.na(seqs_single)]
 
   if (length(seqs_both) == 0 || length(seqs_single) == 0) {
-    warning(sprintf(
-      "calculate_gc: no sequences extracted from ref_fasta (%d duplex, %d single-strand). ",
-      length(seqs_both), length(seqs_single)
-    ), "Check that the reference FASTA is indexed and chromosome names match.")
+    warning(paste0(
+      sprintf(
+        "calculate_gc: no sequences extracted from ref_fasta ",
+        "(%d duplex, %d single-strand). ",
+        length(seqs_both), length(seqs_single)
+      ),
+      "Check that the reference FASTA is indexed ",
+      "and chromosome names match."
+    ))
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
 
@@ -236,21 +298,23 @@ calculate_gc <- function(
   seqs_single_collapsed <- paste(seqs_single, collapse = "")
 
   if (is.na(seqs_both_collapsed) || is.na(seqs_single_collapsed) ||
-      nchar(seqs_both_collapsed) == 0 || nchar(seqs_single_collapsed) == 0) {
-    warning("calculate_gc: collapsed sequence strings are empty or NA after extraction. Returning NA.")
+        nchar(seqs_both_collapsed) == 0 || nchar(seqs_single_collapsed) == 0) {
+    warning(paste0(
+      "calculate_gc: collapsed sequence strings are empty ",
+      "or NA after extraction. Returning NA."
+    ))
     return(c(gc_single = NA_real_, gc_both = NA_real_, gc_deviation = NA_real_))
   }
 
-  gc_both   <- s2c(seqs_both_collapsed)   %>% GC()
-  gc_single <- s2c(seqs_single_collapsed) %>% GC()
+  gc_both <- s2c(seqs_both_collapsed) |>
+    GC()
+  gc_single <- s2c(seqs_single_collapsed) |>
+    GC()
 
   c(gc_single = gc_single,
     gc_both = gc_both,
     gc_deviation = abs(gc_single - gc_both))
 }
-
-
-
 
 # --- Metric grouping / selection ---------
 .individual_metrics <- c("frac_singletons", "efficiency", "drop_out_rate")
@@ -266,28 +330,32 @@ calculate_gc <- function(
 
 # Resolve --metrics into:
 # - groups: grouped metrics to compute (gc/family)
-# - individual: other metrics to compute individually (efficiency, drop_out_rate, frac_singletons)
+# - individual: other metrics to compute individually (efficiency,
+#   drop_out_rate, frac_singletons)
 #
 # Rules:
 # - empty / NULL -> compute all available metrics
 # - token "gc" or "family" -> compute that whole group
 # - token is a individual metric name -> compute only that metric
-# - token is a metric inside gc/family -> compute the whole group 
+# - token is a metric inside gc/family -> compute the whole group
 resolve_metric_selection <- function(metrics_arg = NULL) {
-  
-  metrics_norm <- if (is.null(metrics_arg)) "" else tolower(gsub("\\s+", "", metrics_arg))
-  
+
+  metrics_norm <- if (is.null(metrics_arg)) ""
+  else tolower(gsub("\\s+", "", metrics_arg))
+
   # default/all mode
   if (!nzchar(metrics_norm) || identical(metrics_norm, "all")) {
-    return(list(groups = names(.metric_groups), individual = .individual_metrics))
+    return(
+      list(groups = names(.metric_groups), individual = .individual_metrics)
+    )
   }
-  
+
   tokens <- unlist(strsplit(metrics_norm, ","))
   tokens <- tokens[nzchar(tokens)]
-  
+
   groups <- character(0)
   individual <- character(0)
-  
+
   for (tok in tokens) {
     if (tok %in% names(.metric_groups)) {
       groups <- union(groups, tok)
@@ -297,44 +365,50 @@ resolve_metric_selection <- function(metrics_arg = NULL) {
       individual <- union(individual, tok)
       next
     }
-    
+
     # if metric name inside a group, map to its group
     hit <- names(Filter(function(v) tok %in% v, .metric_groups))
     if (length(hit) > 0) {
       groups <- union(groups, hit)
       next
     }
-    
+
     stop("Unknown metric/group in --metrics: ", tok,
          "\nValid groups: ", paste(names(.metric_groups), collapse = ", "),
          "\nIndividual metrics: ", paste(.individual_metrics, collapse = ", "),
-         "\nGrouped metrics: ", paste(unique(unlist(.metric_groups)), collapse = ", "))
+         "\nGrouped metrics: ",
+         paste(unique(unlist(.metric_groups)), collapse = ", "))
   }
-  
+
   list(groups = groups, individual = individual)
 }
 
 
 # Compute selected metrics (returns 1-row data.frame)
 calculate_metrics_selected <- function(
-    rbs,
-    groups = c("gc", "family"),
-    individual = character(0),
-    rlen,
-    skips,
-    genome_file = NULL,
-    genome_max = NULL
+  rbs,
+  groups = c("gc", "family"),
+  individual = character(0),
+  rlen,
+  skips,
+  genome_file = NULL,
+  genome_max = NULL
 ) {
   metrics <- list()
-  
-  if ("frac_singletons" %in% individual) metrics$frac_singletons <- calculate_singletons(rbs)
-  if ("efficiency" %in% individual)      metrics$efficiency      <- calculate_efficiency(rbs, rlen = rlen, skips = skips)
-  if ("drop_out_rate" %in% individual)   metrics$drop_out_rate   <- calculate_missed_fraction(rbs)
-  
+
+  if ("frac_singletons" %in% individual)
+    metrics$frac_singletons <- calculate_singletons(rbs)
+  if ("efficiency" %in% individual)
+    metrics$efficiency <- calculate_efficiency(rbs, rlen = rlen, skips = skips)
+  if ("drop_out_rate" %in% individual)
+    metrics$drop_out_rate   <- calculate_missed_fraction(rbs)
+
   if ("gc" %in% groups) {
     if (is.null(genome_file) || is.null(genome_max)) {
-      stop("GC metrics requested but required genome objects were not provided. ",
-           "Please supply --ref_fasta (or ensure GC is not selected).")
+      stop(
+        "GC metrics requested but required genome objects were not provided. ",
+        "Please supply --ref_fasta (or ensure GC is not selected)."
+      )
     }
     gc_stats <- calculate_gc(
       rbs,
@@ -345,14 +419,11 @@ calculate_metrics_selected <- function(
     )
     metrics <- c(metrics, as.list(gc_stats))
   }
-  
+
   if ("family" %in% groups) {
     fam_stats <- calculate_family_stats(rbs)
     metrics <- c(metrics, as.list(fam_stats))
   }
-  
+
   as.data.frame(metrics, check.names = FALSE)
 }
-
-
-

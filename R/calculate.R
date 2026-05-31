@@ -76,15 +76,15 @@ parse_samples <- function(sample_arg, inputs) {
 
 
 
-calc_duplex_metrics_one_file_df <- function(
-    input,
-    sample,
-    rlen,
-    skips,
-    groups_to_compute,
-    individual_to_compute,
-    genome_file = NULL,
-    genome_max = NULL
+calc_metrics_one_file_df <- function(
+  input,
+  sample,
+  rlen,
+  skips,
+  groups_to_compute,
+  individual_to_compute,
+  genome_file = NULL,
+  genome_max = NULL
 ) {
   in_file <- normalizePath(input, mustWork = TRUE)
 
@@ -121,7 +121,7 @@ calc_duplex_metrics_one_file_df <- function(
 
 
 
-calc_duplex_metrics_many_files_df <- function(
+calc_metrics_many_files_df <- function(
   inputs,
   samples,
   rlen,
@@ -135,7 +135,7 @@ calc_duplex_metrics_many_files_df <- function(
   inputs <- normalizePath(inputs, mustWork = TRUE)
 
   process_one_file <- function(i) {
-    calc_duplex_metrics_one_file_df(
+    calc_metrics_one_file_df(
       input = inputs[i],
       sample = samples[i],
       rlen = rlen,
@@ -166,13 +166,13 @@ calc_duplex_metrics_many_files_df <- function(
 # ------------------------------------------------------------------
 
 process_data <- function(
-    input, output,
-    sample = NULL,
-    rlen = 151,
-    skips = 5,
-    ref_fasta = "",
-    metrics = "all",
-    cores = 1
+  input, output,
+  sample = NULL,
+  rlen = 151,
+  skips = 5,
+  ref_fasta = "",
+  metrics = "all",
+  cores = 1
 ) {
   # validate input
   if (is.null(input) || length(input) == 0) {
@@ -181,7 +181,9 @@ process_data <- function(
 
   missing <- input[!file.exists(input)]
   if (length(missing) > 0) {
-    return(list(success = FALSE, error = paste0("Input file(s) not found:\n", paste(missing, collapse = "\n"))))
+    return(list(success = FALSE,
+                error = paste0("Input file(s) not found:\n",
+                               paste(missing, collapse = "\n"))))
   }
 
   if (is.na(cores) || cores < 1) {
@@ -189,7 +191,8 @@ process_data <- function(
   }
 
   odir <- dirname(output)
-  if (!dir.exists(odir)) dir.create(odir, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(odir))
+    dir.create(odir, recursive = TRUE, showWarnings = FALSE)
 
   # Resolve metric selection once
   sel <- resolve_metric_selection(metrics)
@@ -205,8 +208,11 @@ process_data <- function(
   gc_requested <- "gc" %in% groups_to_compute
   has_ref <- nzchar(ref_fasta) && file.exists(ref_fasta)
 
-  metrics_norm <- if (is.null(metrics)) "" else tolower(gsub("\\s+", "", metrics))
-  is_default_all <- identical(metrics_norm, "") || identical(metrics_norm, "all")
+  metrics_norm <- if (is.null(metrics)) ""
+  else tolower(gsub("\\s+", "", metrics))
+
+  is_default_all <- identical(metrics_norm, "") ||
+    identical(metrics_norm, "all")
   explicit_metrics <- !is_default_all
 
 
@@ -215,7 +221,8 @@ process_data <- function(
   # - explicit mode (user asked for gc/gc_single etc.): fail with clear error
   if (gc_requested && !has_ref) {
     msg <- if (!nzchar(ref_fasta)) {
-      "GC metrics requested but --ref_fasta not provided. Please provide --ref_fasta to compute GC."
+      paste("GC metrics requested but --ref_fasta not provided.",
+            "Please provide --ref_fasta to compute GC.")
     } else {
       paste0("GC metrics requested but --ref_fasta not found at: ", ref_fasta,
              ". Please supply a valid FASTA path.")
@@ -226,7 +233,8 @@ process_data <- function(
     }
 
     # default/all mode: skip GC and continue
-    message("GC metrics skipped because --ref_fasta was not provided or was not found.")
+    message(paste("GC metrics skipped because --ref_fasta was not provided",
+                  "or was not found."))
     groups_to_compute <- setdiff(groups_to_compute, "gc")
     ref_fasta <- ""
   }
@@ -253,7 +261,7 @@ process_data <- function(
 
   out_df <- tryCatch({
     if (length(input) == 1) {
-      calc_duplex_metrics_one_file_df(
+      calc_metrics_one_file_df(
         input = input,
         sample = samples[1],
         rlen = rlen,
@@ -264,7 +272,7 @@ process_data <- function(
         genome_max = genome_max
       )
     } else {
-      calc_duplex_metrics_many_files_df(
+      calc_metrics_many_files_df(
         inputs = input,
         samples = samples,
         rlen = rlen,
@@ -279,19 +287,20 @@ process_data <- function(
   }, error = function(e) e)
 
 
-  if (inherits(out_df, "error")) return(list(success = FALSE, error = out_df$message))
+  if (inherits(out_df, "error"))
+    return(list(success = FALSE, error = out_df$message))
 
   write_result <- tryCatch({
     write.csv(out_df, output, row.names = FALSE, quote = FALSE)
     TRUE
   }, error = function(e) e)
 
-  if (inherits(write_result, "error")) return(list(success = FALSE, error = paste0("Write failed: ", write_result$message)))
+  if (inherits(write_result, "error"))
+    return(list(success = FALSE,
+                error = paste0("Write failed: ", write_result$message)))
 
   if (!is.null(genome_file)) {
     try(close(genome_file), silent = TRUE)
   }
   list(success = TRUE)
 }
-
-
