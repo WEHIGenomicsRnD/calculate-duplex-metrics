@@ -101,7 +101,7 @@ calculate_gc <- function(
     rbs,
     rlen,
     skips,
-    genomeFile,
+    genome_file,
     genome_max,
     sample_n = 10000,
     max_gap = 100000
@@ -213,12 +213,12 @@ calculate_gc <- function(
   seqs_both <- GRanges(rbs_both$chrom,
                        IRanges(start = rbs_both$pos,
                                end   = rbs_both$end)) %>%
-    scanFa(genomeFile, .) %>% as.vector()
+    scanFa(genome_file, .) %>% as.vector()
 
   seqs_single <- GRanges(rbs_single$chrom,
                          IRanges(start = rbs_single$pos,
                                  end   = rbs_single$end)) %>%
-    scanFa(genomeFile, .) %>% as.vector()
+    scanFa(genome_file, .) %>% as.vector()
 
   # drop NA sequences
   seqs_both   <- seqs_both[!is.na(seqs_both)]
@@ -322,7 +322,7 @@ calculate_metrics_selected <- function(
     individual = character(0),
     rlen,
     skips,
-    genomeFile = NULL,
+    genome_file = NULL,
     genome_max = NULL
 ) {
   metrics <- list()
@@ -332,7 +332,7 @@ calculate_metrics_selected <- function(
   if ("drop_out_rate" %in% individual)   metrics$drop_out_rate   <- calculate_missed_fraction(rbs)
   
   if ("gc" %in% groups) {
-    if (is.null(genomeFile) || is.null(genome_max)) {
+    if (is.null(genome_file) || is.null(genome_max)) {
       stop("GC metrics requested but required genome objects were not provided. ",
            "Please supply --ref_fasta (or ensure GC is not selected).")
     }
@@ -340,7 +340,7 @@ calculate_metrics_selected <- function(
       rbs,
       rlen = rlen,
       skips = skips,
-      genomeFile = genomeFile,
+      genome_file = genome_file,
       genome_max = genome_max
     )
     metrics <- c(metrics, as.list(gc_stats))

@@ -97,7 +97,7 @@ test_that("calculate_gc returns NA metrics if reference genome missing", {
       rinfo,
       rlen = rlen,
       skips = skips,
-      genomeFile = NULL,
+      genome_file = NULL,
       genome_max = NULL
     ),
     "genome_max is NULL or empty"
@@ -114,11 +114,11 @@ test_that("calculate_gc returns expected GC metrics when reference is provided",
     destfile = ref, mode = "wb")
  fa <- R.utils::gunzip(ref, remove = FALSE)
  indexFa(fa)
- genomeFile <- FaFile(fa)
- genome_max <- seqlengths(genomeFile)
+ genome_file <- FaFile(fa)
+ genome_max <- seqlengths(genome_file)
 
  gc <- suppressWarnings(
-   calculate_gc(rinfo,rlen = rlen, skips = skips, genomeFile = genomeFile, genome_max = genome_max)
+   calculate_gc(rinfo,rlen = rlen, skips = skips, genome_file = genome_file, genome_max = genome_max)
  )
   expect_named(gc, c("gc_single", "gc_both", "gc_deviation"))
   expect_equal(gc[["gc_single"]], 0.397, tolerance = 1e-3)
@@ -153,7 +153,8 @@ test_that("calculate_metrics_selected returns 1-row data.frame", {
     groups = "family",
     individual = "frac_singletons",
     rlen = rlen,
-    skips = skips )
+    skips = skips 
+  )
   expect_s3_class(res, "data.frame")
   expect_equal(nrow(res), 1)
   expect_true("frac_singletons" %in% colnames(res))
@@ -168,7 +169,7 @@ test_that("calculate_metrics_selected errors if GC selected without refernce gen
       individual = character(0),
       rlen = rlen,
       skips = skips,
-      genomeFile = NULL,
+      genome_file = NULL,
       genome_max = NULL
     ),
     "GC metrics requested"

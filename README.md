@@ -31,7 +31,7 @@ Family stats
 - The CLI entrypoint is `main.R`
 - Argument parsing and validation are handled in `cli.R`
 - Metric execution logic is in `calculate.R`
-- Core metric implementations are defined in `R/calculate_nanoseq_functions.R`
+- Core metric implementations are defined in `R/metric_functions.R`
 
 Metric selection is resolved **before computation**.  
 Only the requested individual metrics and/or metric groups are evaluated.
@@ -191,6 +191,18 @@ This method uses Conda to manage the R environment and dependencies, then instal
 
 #### Default Usage Example
 
+Validate that the CLI can be called:
+
+```bash
+# Installed package (Docker / conda):
+calc-duplex-metrics --help
+
+# Local renv development:
+Rscript main.R --help
+```
+
+Basic usage is as follows:
+
 ```bash
 calc-duplex-metrics \
   --input data/test.rinfo \
@@ -315,15 +327,7 @@ NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,paired_and_gt1,8152302
 
 ```
 
-
 #### Sanity check the CLI
-```bash
-# Installed package (Docker / conda):
-calc-duplex-metrics --help
-
-# Local renv development:
-Rscript main.R --help
-```
 
 ## Testing
 Test that functions return valid numeric values, correct handling of edge cases (NA, zero reads, invalid inputs) and presence of expected metrics names.

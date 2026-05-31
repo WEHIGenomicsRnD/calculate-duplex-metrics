@@ -17,7 +17,7 @@
 #   - Writes results to a tidy CSV with one row per sample–metric pair
 #
 # When the package is installed, all R/*.R files (including
-# calculate_nanoseq_functions.R) are compiled into the package
+# metric_functions.R are compiled into the package
 # namespace — no source() calls are needed. When running locally from
 # the project root via main.R (renv), main.R sources calculate.R
 # directly (and also sources cli.R); calculate_nanoseq_functions.R is
@@ -46,12 +46,12 @@ suppressPackageStartupMessages({
 
 parse_samples <- function(sample_arg, inputs) {
   n <- length(inputs)
-  
+
   # default: derive sample names from filenames
   if (is.null(sample_arg) || length(sample_arg) == 0) {
     return(sub("\\.txt(\\.gz)?$", "", basename(inputs), ignore.case = TRUE))
   }
-  
+
   # if cli.R already parsed it into a vector (e.g. c("S1","S2"))
   if (length(sample_arg) > 1) {
     samples <- trimws(sample_arg)
@@ -64,13 +64,13 @@ parse_samples <- function(sample_arg, inputs) {
     samples <- trimws(unlist(strsplit(sample_arg, ",", fixed = TRUE)))
     samples <- samples[nzchar(samples)]
   }
-  
+
   if (n == 1 && length(samples) == 1) return(samples)
-  
+
   if (length(samples) != n) {
     stop("--sample must contain the same number of names as --input files.")
   }
-  
+
   samples
 }
 
@@ -83,18 +83,18 @@ calc_duplex_metrics_one_file_df <- function(
     skips,
     groups_to_compute,
     individual_to_compute,
-    genomeFile = NULL,
+    genome_file = NULL,
     genome_max = NULL
 ) {
   in_file <- normalizePath(input, mustWork = TRUE)
-  
+
   if (is.null(sample) || !nzchar(sample)) {
     sample <- sub("\\.txt(\\.gz)?$", "", basename(in_file), ignore.case = TRUE)
   }
-  
+
   rbs <- tryCatch(fread(in_file), error = function(e) e)
   if (inherits(rbs, "error")) stop("Failed to read input: ", rbs$message)
-  
+
   tbl <- tryCatch(
     calculate_metrics_selected(
       rbs,
@@ -102,14 +102,14 @@ calc_duplex_metrics_one_file_df <- function(
       individual = individual_to_compute,
       rlen = rlen,
       skips = skips,
-      genomeFile = genomeFile,
+      genome_file = genome_file,
       genome_max = genome_max
     ),
     error = function(e) e
   )
   if (inherits(tbl, "error")) stop("Metric calculation failed: ", tbl$message)
   if (is.null(tbl) || nrow(tbl) == 0) stop("Empty metrics table returned")
-  
+
   metric_names <- names(tbl)
   data.frame(
     sample = sample,
@@ -122,18 +122,18 @@ calc_duplex_metrics_one_file_df <- function(
 
 
 calc_duplex_metrics_many_files_df <- function(
-    inputs,
-    samples,
-    rlen,
-    skips,
-    groups_to_compute,
-    individual_to_compute,
-    cores = 1,
-    genomeFile = NULL,
-    genome_max = NULL
+  inputs,
+  samples,
+  rlen,
+  skips,
+  groups_to_compute,
+  individual_to_compute,
+  cores = 1,
+  genome_file = NULL,
+  genome_max = NULL
 ) {
   inputs <- normalizePath(inputs, mustWork = TRUE)
-  
+
   process_one_file <- function(i) {
     calc_duplex_metrics_one_file_df(
       input = inputs[i],
@@ -142,19 +142,19 @@ calc_duplex_metrics_many_files_df <- function(
       skips = skips,
       groups_to_compute = groups_to_compute,
       individual_to_compute = individual_to_compute,
-      genomeFile = genomeFile,
+      genome_file = genome_file,
       genome_max = genome_max
     )
   }
-  
+
   idx <- seq_along(inputs)
-  
+
   out_list <- if (cores > 1 && .Platform$OS.type != "windows") {
     parallel::mclapply(idx, process_one_file, mc.cores = cores)
   } else {
     lapply(idx, process_one_file)
   }
-  
+
   as.data.frame(data.table::rbindlist(out_list, use.names = TRUE, fill = TRUE))
 }
 
@@ -195,20 +195,20 @@ process_data <- function(
   sel <- resolve_metric_selection(metrics)
   groups_to_compute <- sel$groups
   individual_to_compute <- sel$individual
-  
-  
+
+
   if (nzchar(ref_fasta)) {
     ref_fasta <- normalizePath(ref_fasta, mustWork = FALSE)
   }
-  
+
   # Consolidated GC gating
   gc_requested <- "gc" %in% groups_to_compute
   has_ref <- nzchar(ref_fasta) && file.exists(ref_fasta)
-  
+
   metrics_norm <- if (is.null(metrics)) "" else tolower(gsub("\\s+", "", metrics))
   is_default_all <- identical(metrics_norm, "") || identical(metrics_norm, "all")
   explicit_metrics <- !is_default_all
-  
+
 
   # If GC is requested but we can't compute it:
   # - default mode (metrics empty): skip GC
@@ -220,37 +220,37 @@ process_data <- function(
       paste0("GC metrics requested but --ref_fasta not found at: ", ref_fasta,
              ". Please supply a valid FASTA path.")
     }
-    
+
     if (explicit_metrics) {
       return(list(success = FALSE, error = msg))
     }
-    
+
     # default/all mode: skip GC and continue
     message("GC metrics skipped because --ref_fasta was not provided or was not found.")
     groups_to_compute <- setdiff(groups_to_compute, "gc")
     ref_fasta <- ""
   }
-  
+
   if (length(groups_to_compute) == 0 && length(individual_to_compute) == 0) {
     return(list(success = FALSE, error = "No metrics selected to compute."))
   }
-  
+
   # Prepare genome objects once (only when GC requested)
-  genomeFile <- NULL
+  genome_file <- NULL
   genome_max <- NULL
-  
+
   if ("gc" %in% groups_to_compute) {
-    genomeFile <- Rsamtools::FaFile(ref_fasta)
+    genome_file <- Rsamtools::FaFile(ref_fasta)
     fa <- Biostrings::readDNAStringSet(ref_fasta)
     fa_names <- sub("\\s.*$", "", names(fa))
     genome_max <- setNames(as.integer(Biostrings::width(fa)), fa_names)
   }
-  
-  
+
+
   # Parse samples for single/multi input
   samples <- parse_samples(sample, input)
-  
-  
+
+
   out_df <- tryCatch({
     if (length(input) == 1) {
       calc_duplex_metrics_one_file_df(
@@ -260,7 +260,7 @@ process_data <- function(
         skips = skips,
         groups_to_compute = groups_to_compute,
         individual_to_compute = individual_to_compute,
-        genomeFile = genomeFile,
+        genome_file = genome_file,
         genome_max = genome_max
       )
     } else {
@@ -272,26 +272,26 @@ process_data <- function(
         groups_to_compute = groups_to_compute,
         individual_to_compute = individual_to_compute,
         cores = cores,
-        genomeFile = genomeFile,
+        genome_file = genome_file,
         genome_max = genome_max
       )
     }
   }, error = function(e) e)
-  
-  
+
+
   if (inherits(out_df, "error")) return(list(success = FALSE, error = out_df$message))
-  
+
   write_result <- tryCatch({
     write.csv(out_df, output, row.names = FALSE, quote = FALSE)
     TRUE
   }, error = function(e) e)
-  
+
   if (inherits(write_result, "error")) return(list(success = FALSE, error = paste0("Write failed: ", write_result$message)))
-  
-  if (!is.null(genomeFile)) {
-    try(close(genomeFile), silent = TRUE)
+
+  if (!is.null(genome_file)) {
+    try(close(genome_file), silent = TRUE)
   }
   list(success = TRUE)
 }
-  
-  
+
+
