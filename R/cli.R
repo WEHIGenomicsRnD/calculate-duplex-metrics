@@ -28,7 +28,8 @@ main <- function() {
     skips     = args$skips,
     ref_fasta = args$ref_fasta,
     metrics   = args$metrics,
-    cores     = args$cores
+    cores     = args$cores,
+    input_format = args$input_format
   )
 
 
@@ -53,7 +54,7 @@ parse_arguments <- function() {
   p$add_argument(
     "-i", "--input", nargs = "+", required = TRUE,
     help = paste(
-      "Input path(s): either a directory OR one/more rinfo files.",
+      "Input path(s): either a directory OR one/more metric input files.",
       "You can also pass a comma-separated list.",
       "Examples:",
       "--input data/",
@@ -85,6 +86,16 @@ parse_arguments <- function() {
                  help = paste("Optional reference genome object (.fasta file).",
                               "GC metrics are skipped if not provided."))
   p$add_argument(
+    "--input_format",
+    default = "rinfo",
+    choices = .supported_input_formats,
+    help = paste(
+      "Input format (default: rinfo).",
+      "Use fgbio for",
+      "CollectDuplexSeqMetrics duplex_family_sizes tables."
+    )
+  )
+  p$add_argument(
     "--metrics", default = "all",
     help = paste(
       "Comma-separated metric groups or metric names. Default: all.",
@@ -100,6 +111,7 @@ parse_arguments <- function() {
   if (!is.null(args$metrics) && nzchar(args$metrics)) {
     args$metrics <- tolower(gsub("\\s+", "", args$metrics))
   }
+  args$input_format <- normalize_input_format(args$input_format)
 
   # validate cores
   if (is.na(args$cores) || args$cores < 1) {

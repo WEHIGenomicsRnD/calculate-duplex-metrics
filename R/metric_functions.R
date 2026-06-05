@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------
-# calculate_nanoseq_functions.R
+# metric_functions.R
 #
 # Core implementations of duplex-specific metric calculations.
 #
@@ -62,10 +62,12 @@ calculate_efficiency <- function(rbs, rlen, skips) {
   if (is.na(skips) || skips < 0) stop("skips must be >= 0")
   if (skips >= rlen) stop("skips must be < rlen")
 
-  bases_ok_rbs <- nrow(rbs[rbs$x > 1 & rbs$y > 1, ]) * ((rlen - skips) * 2)
-  total_reads <- sum(c(rbs$x, rbs$y))
+  usable_bases_per_bundle <- (as.double(rlen) - as.double(skips)) * 2
+  bases_ok_rbs <- as.double(nrow(rbs[rbs$x > 1 & rbs$y > 1, ])) *
+    usable_bases_per_bundle
+  total_reads <- as.double(sum(c(rbs$x, rbs$y)))
   if (total_reads == 0) return(NA_real_)
-  bases_sequenced <- total_reads * rlen * 2
+  bases_sequenced <- total_reads * as.double(rlen) * 2
   bases_ok_rbs / bases_sequenced
 }
 
@@ -316,6 +318,138 @@ calculate_gc <- function(
     gc_deviation = abs(gc_single - gc_both))
 }
 
+.supported_input_formats <- c("rinfo", "fgbio")
+
+normalize_input_format <- function(input_format = "rinfo") {
+  input_format <- tolower(trimws(input_format))
+
+  if (!nzchar(input_format) || !input_format %in% .supported_input_formats) {
+    stop(
+      "Unknown --input_format: ", input_format,
+      "\nValid input formats: ",
+      paste(.supported_input_formats, collapse = ", ")
+    )
+  }
+
+  input_format
+}
+
+validate_fgbio_duplex_family_sizes <- function(metrics_tbl) {
+  required_cols <- c("ab_size", "ba_size", "count")
+  missing_cols <- setdiff(required_cols, names(metrics_tbl))
+
+  if (length(missing_cols) > 0) {
+    stop(
+      "fgbio duplex family size input is missing required column(s): ",
+      paste(missing_cols, collapse = ", ")
+    )
+  }
+
+  metrics_tbl <- data.frame(metrics_tbl)
+  metrics_tbl <- metrics_tbl[, required_cols, drop = FALSE]
+
+  for (col in required_cols) {
+    if (anyNA(metrics_tbl[[col]])) {
+      stop("fgbio duplex family size input contains NA values in ", col)
+    }
+    if (any(metrics_tbl[[col]] < 0)) {
+      stop("fgbio duplex family size input contains negative values in ", col)
+    }
+  }
+
+  metrics_tbl
+}
+
+calculate_weighted_median <- function(values, weights) {
+  if (length(values) == 0 || length(weights) == 0 || sum(weights) == 0) {
+    return(NA_real_)
+  }
+
+  ord <- order(values)
+  values <- values[ord]
+  weights <- weights[ord]
+  cutoff <- sum(weights) / 2
+
+  values[which(cumsum(weights) >= cutoff)[1]]
+}
+
+calculate_family_stats_fgbio <- function(metrics_tbl) {
+  metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
+
+  family_size <- metrics_tbl$ab_size + metrics_tbl$ba_size
+  total_families <- sum(metrics_tbl$count)
+
+  c(
+    total_families = total_families,
+    family_mean = if (total_families == 0) NA_real_
+    else sum(family_size * metrics_tbl$count) / total_families,
+    family_median = calculate_weighted_median(family_size, metrics_tbl$count),
+    family_max = if (total_families == 0) NA_real_ else max(family_size),
+    families_gt1 = sum(metrics_tbl$count[
+      metrics_tbl$ab_size > 1 | metrics_tbl$ba_size > 1
+    ]),
+    single_families = sum(metrics_tbl$count[
+      (metrics_tbl$ab_size == 1 & metrics_tbl$ba_size == 0) |
+        (metrics_tbl$ab_size == 0 & metrics_tbl$ba_size == 1)
+    ]),
+    paired_families = sum(metrics_tbl$count[
+      metrics_tbl$ab_size > 0 & metrics_tbl$ba_size > 0
+    ]),
+    paired_and_gt1 = sum(metrics_tbl$count[
+      metrics_tbl$ab_size > 1 & metrics_tbl$ba_size > 1
+    ])
+  )
+}
+
+calculate_efficiency_fgbio <- function(metrics_tbl, rlen, skips) {
+  metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
+
+  if (is.na(rlen) || rlen <= 0) stop("rlen must be positive")
+  if (is.na(skips) || skips < 0) stop("skips must be >= 0")
+  if (skips >= rlen) stop("skips must be < rlen")
+
+  usable_bases_per_bundle <- (as.double(rlen) - as.double(skips)) * 2
+  total_reads <- sum(
+    (metrics_tbl$ab_size + metrics_tbl$ba_size) * metrics_tbl$count
+  )
+  total_reads <- as.double(total_reads)
+  if (total_reads == 0) return(NA_real_)
+
+  duplex_families <- as.double(sum(metrics_tbl$count[
+    metrics_tbl$ab_size > 1 & metrics_tbl$ba_size > 1
+  ]))
+  bases_ok_rbs <- duplex_families * usable_bases_per_bundle
+  bases_sequenced <- total_reads * as.double(rlen) * 2
+
+  bases_ok_rbs / bases_sequenced
+}
+
+calculate_missed_fraction_fgbio <- function(metrics_tbl) {
+  metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
+
+  family_size <- pmin(metrics_tbl$ab_size + metrics_tbl$ba_size, 10)
+  total_missed <- 0
+
+  for (size in c(4:10)) {
+    exp_orphan <- (0.5 ** size) * 2
+    total_this_size <- sum(metrics_tbl$count[family_size == size])
+    if (total_this_size > 0) {
+      with_both_strands <- sum(metrics_tbl$count[
+        family_size == size &
+          metrics_tbl$ab_size > 0 &
+          metrics_tbl$ba_size > 0
+      ])
+      obs_orphan <- 1 - with_both_strands / total_this_size
+      total_missed <- total_missed + (obs_orphan - exp_orphan) * total_this_size
+    }
+  }
+
+  den <- sum(metrics_tbl$count[family_size >= 4])
+  if (den == 0) return(NA_real_)
+
+  total_missed / den
+}
+
 # --- Metric grouping / selection ---------
 .individual_metrics <- c("frac_singletons", "efficiency", "drop_out_rate")
 
@@ -391,17 +525,58 @@ calculate_metrics_selected <- function(
   individual = character(0),
   rlen,
   skips,
+  input_format = "rinfo",
   genome_file = NULL,
   genome_max = NULL
 ) {
+  input_format <- normalize_input_format(input_format)
   metrics <- list()
 
-  if ("frac_singletons" %in% individual)
+  if (input_format == "fgbio") {
+    if ("gc" %in% groups) {
+      stop(
+        "GC metrics are not supported for ",
+        "--input_format fgbio."
+      )
+    }
+
+    if ("frac_singletons" %in% individual) {
+      stop(
+        "frac_singletons is not supported for ",
+        "--input_format fgbio."
+      )
+    }
+
+    fgbio_tbl <- validate_fgbio_duplex_family_sizes(rbs)
+
+    if ("efficiency" %in% individual) {
+      metrics$efficiency <- calculate_efficiency_fgbio(
+        fgbio_tbl,
+        rlen = rlen,
+        skips = skips
+      )
+    }
+    if ("drop_out_rate" %in% individual) {
+      metrics$drop_out_rate <- calculate_missed_fraction_fgbio(fgbio_tbl)
+    }
+
+    if ("family" %in% groups) {
+      fam_stats <- calculate_family_stats_fgbio(fgbio_tbl)
+      metrics <- c(metrics, as.list(fam_stats))
+    }
+
+    return(as.data.frame(metrics, check.names = FALSE))
+  }
+
+  if ("frac_singletons" %in% individual) {
     metrics$frac_singletons <- calculate_singletons(rbs)
-  if ("efficiency" %in% individual)
+  }
+  if ("efficiency" %in% individual) {
     metrics$efficiency <- calculate_efficiency(rbs, rlen = rlen, skips = skips)
-  if ("drop_out_rate" %in% individual)
-    metrics$drop_out_rate   <- calculate_missed_fraction(rbs)
+  }
+  if ("drop_out_rate" %in% individual) {
+    metrics$drop_out_rate <- calculate_missed_fraction(rbs)
+  }
 
   if ("gc" %in% groups) {
     if (is.null(genome_file) || is.null(genome_max)) {

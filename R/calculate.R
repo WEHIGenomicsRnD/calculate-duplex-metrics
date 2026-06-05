@@ -20,7 +20,7 @@
 # metric_functions.R are compiled into the package
 # namespace — no source() calls are needed. When running locally from
 # the project root via main.R (renv), main.R sources calculate.R
-# directly (and also sources cli.R); calculate_nanoseq_functions.R is
+# directly (and also sources cli.R); metric_functions.R is
 # sourced explicitly below for that local-only path.
 #
 # All helper functions in this file focus on coordinating metric
@@ -81,6 +81,7 @@ calc_metrics_one_file_df <- function(
   sample,
   rlen,
   skips,
+  input_format,
   groups_to_compute,
   individual_to_compute,
   genome_file = NULL,
@@ -102,6 +103,7 @@ calc_metrics_one_file_df <- function(
       individual = individual_to_compute,
       rlen = rlen,
       skips = skips,
+      input_format = input_format,
       genome_file = genome_file,
       genome_max = genome_max
     ),
@@ -126,6 +128,7 @@ calc_metrics_many_files_df <- function(
   samples,
   rlen,
   skips,
+  input_format,
   groups_to_compute,
   individual_to_compute,
   cores = 1,
@@ -140,6 +143,7 @@ calc_metrics_many_files_df <- function(
       sample = samples[i],
       rlen = rlen,
       skips = skips,
+      input_format = input_format,
       groups_to_compute = groups_to_compute,
       individual_to_compute = individual_to_compute,
       genome_file = genome_file,
@@ -172,7 +176,8 @@ process_data <- function(
   skips = 5,
   ref_fasta = "",
   metrics = "all",
-  cores = 1
+  cores = 1,
+  input_format = "rinfo"
 ) {
   # validate input
   if (is.null(input) || length(input) == 0) {
@@ -188,6 +193,14 @@ process_data <- function(
 
   if (is.na(cores) || cores < 1) {
     return(list(success = FALSE, error = "--cores must be >= 1"))
+  }
+
+  input_format <- tryCatch(
+    normalize_input_format(input_format),
+    error = function(e) e
+  )
+  if (inherits(input_format, "error")) {
+    return(list(success = FALSE, error = input_format$message))
   }
 
   odir <- dirname(output)
@@ -215,6 +228,56 @@ process_data <- function(
     identical(metrics_norm, "all")
   explicit_metrics <- !is_default_all
 
+  unsupported_individual <- character(0)
+
+  if (identical(input_format, "fgbio")) {
+    unsupported_individual <- "frac_singletons"
+  }
+
+  requested_unsupported_individual <- intersect(
+    individual_to_compute,
+    unsupported_individual
+  )
+
+  if (length(requested_unsupported_individual) > 0) {
+    msg <- paste0(
+      paste(requested_unsupported_individual, collapse = ", "),
+      " not supported for --input_format ",
+      input_format,
+      "."
+    )
+
+    if (explicit_metrics) {
+      return(list(success = FALSE, error = msg))
+    }
+
+    message(
+      paste0(
+        paste(requested_unsupported_individual, collapse = ", "),
+        " skipped for --input_format ",
+        input_format,
+        "."
+      )
+    )
+    individual_to_compute <- setdiff(
+      individual_to_compute,
+      requested_unsupported_individual
+    )
+  }
+
+  if (gc_requested && identical(input_format, "fgbio")) {
+    msg <- paste(
+      "GC metrics are not supported for",
+      "--input_format fgbio."
+    )
+
+    if (explicit_metrics) {
+      return(list(success = FALSE, error = msg))
+    }
+
+    message("GC metrics skipped for fgbio duplex family size input.")
+    groups_to_compute <- setdiff(groups_to_compute, "gc")
+  }
 
   # If GC is requested but we can't compute it:
   # - default mode (metrics empty): skip GC
@@ -266,6 +329,7 @@ process_data <- function(
         sample = samples[1],
         rlen = rlen,
         skips = skips,
+        input_format = input_format,
         groups_to_compute = groups_to_compute,
         individual_to_compute = individual_to_compute,
         genome_file = genome_file,
@@ -277,6 +341,7 @@ process_data <- function(
         samples = samples,
         rlen = rlen,
         skips = skips,
+        input_format = input_format,
         groups_to_compute = groups_to_compute,
         individual_to_compute = individual_to_compute,
         cores = cores,
