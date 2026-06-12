@@ -401,6 +401,20 @@ calculate_family_stats_fgbio <- function(metrics_tbl) {
   )
 }
 
+calculate_singletons_fgbio <- function(metrics_tbl) {
+  metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
+
+  total_reads <- sum((metrics_tbl$ab_size + metrics_tbl$ba_size) * metrics_tbl$count)
+  total_reads <- as.double(total_reads)
+  if (total_reads == 0) return(NA_real_)
+
+  singletons <- sum(metrics_tbl$count[
+    (metrics_tbl$ab_size == 1 & metrics_tbl$ba_size == 0) |
+      (metrics_tbl$ab_size == 0 & metrics_tbl$ba_size == 1)
+  ])
+  as.double(singletons) / total_reads
+}
+
 calculate_efficiency_fgbio <- function(metrics_tbl, rlen, skips) {
   metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
 
@@ -424,7 +438,7 @@ calculate_efficiency_fgbio <- function(metrics_tbl, rlen, skips) {
   bases_ok_rbs / bases_sequenced
 }
 
-calculate_missed_fraction_fgbio <- function(metrics_tbl) {
+calculate_missed_frac_fgbio <- function(metrics_tbl) {
   metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
 
   family_size <- pmin(metrics_tbl$ab_size + metrics_tbl$ba_size, 10)
@@ -540,15 +554,11 @@ calculate_metrics_selected <- function(
       )
     }
 
-    if ("frac_singletons" %in% individual) {
-      stop(
-        "frac_singletons is not supported for ",
-        "--input_format fgbio."
-      )
-    }
-
     fgbio_tbl <- validate_fgbio_duplex_family_sizes(rbs)
 
+    if ("frac_singletons" %in% individual) {
+      metrics$frac_singletons <- calculate_singletons_fgbio(fgbio_tbl)
+    }
     if ("efficiency" %in% individual) {
       metrics$efficiency <- calculate_efficiency_fgbio(
         fgbio_tbl,
@@ -557,7 +567,7 @@ calculate_metrics_selected <- function(
       )
     }
     if ("drop_out_rate" %in% individual) {
-      metrics$drop_out_rate <- calculate_missed_fraction_fgbio(fgbio_tbl)
+      metrics$drop_out_rate <- calculate_missed_frac_fgbio(fgbio_tbl)
     }
 
     if ("family" %in% groups) {

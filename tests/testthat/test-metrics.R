@@ -41,6 +41,21 @@ test_that("calculate_singletons returns NA with empty input", {
   expect_true(is.na(val))
 })
 
+test_that("fgbio frac_singletons matches expanded family-size input", {
+  fgbio_small <- data.frame(
+    ab_size = c(1, 2, 2, 3, 4),
+    ba_size = c(0, 0, 2, 1, 4),
+    count = c(2, 3, 1, 4, 2)
+  )
+  expanded <- fgbio_small[rep(seq_len(nrow(fgbio_small)), fgbio_small$count), ]
+  expanded <- data.frame(x = expanded$ab_size, y = expanded$ba_size)
+
+  expect_equal(
+    calculate_singletons_fgbio(fgbio_small),
+    calculate_singletons(expanded)
+  )
+})
+
 # ------------------------------------------------------------------------------
 # calculate_family_stats
 # ------------------------------------------------------------------------------
@@ -278,7 +293,7 @@ test_that("calculate_metrics_selected supports fgbio duplex family size input", 
   res <- calculate_metrics_selected(
     fgbio_family_sizes,
     groups = "family",
-    individual = c("efficiency", "drop_out_rate"),
+    individual = c("frac_singletons", "efficiency", "drop_out_rate"),
     rlen = rlen,
     skips = skips,
     input_format = "fgbio"
@@ -286,6 +301,7 @@ test_that("calculate_metrics_selected supports fgbio duplex family size input", 
 
   expect_s3_class(res, "data.frame")
   expect_equal(nrow(res), 1)
+  expect_equal(res$frac_singletons[[1]], 0.0100687768531685, tolerance = 1e-12)
   expect_equal(res$efficiency[[1]], 0.051592899711472, tolerance = 1e-12)
   expect_equal(res$drop_out_rate[[1]], 0.323238117148393, tolerance = 1e-12)
   expect_equal(res$total_families[[1]], 18297772)
@@ -298,7 +314,7 @@ test_that("calculate_metrics_selected supports fgbio duplex family size input", 
   expect_equal(res$paired_and_gt1[[1]], 8206722)
 })
 
-test_that("calculate_metrics_selected rejects unsupported fgbio metrics", {
+test_that("calculate_metrics_selected rejects unsupported fgbio GC metrics", {
   expect_error(
     calculate_metrics_selected(
       fgbio_family_sizes,
@@ -310,21 +326,9 @@ test_that("calculate_metrics_selected rejects unsupported fgbio metrics", {
     ),
     "GC metrics are not supported"
   )
-
-  expect_error(
-    calculate_metrics_selected(
-      fgbio_family_sizes,
-      groups = character(0),
-      individual = "frac_singletons",
-      rlen = rlen,
-      skips = skips,
-      input_format = "fgbio"
-    ),
-    "frac_singletons is not supported"
-  )
 })
 
-test_that("process_data skips unsupported default metrics for fgbio input", {
+test_that("process_data includes frac_singletons for fgbio all metrics", {
   out <- withr::local_tempfile(fileext = ".csv")
 
   expect_message(
@@ -344,10 +348,10 @@ test_that("process_data skips unsupported default metrics for fgbio input", {
   expect_false(any(out_tbl$metric %in% c(
     "gc_single",
     "gc_both",
-    "gc_deviation",
-    "frac_singletons"
+    "gc_deviation"
   )))
   expect_true(all(c(
+    "frac_singletons",
     "efficiency",
     "drop_out_rate",
     "total_families",

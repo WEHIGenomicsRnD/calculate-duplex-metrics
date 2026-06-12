@@ -228,43 +228,6 @@ process_data <- function(
     identical(metrics_norm, "all")
   explicit_metrics <- !is_default_all
 
-  unsupported_individual <- character(0)
-
-  if (identical(input_format, "fgbio")) {
-    unsupported_individual <- "frac_singletons"
-  }
-
-  requested_unsupported_individual <- intersect(
-    individual_to_compute,
-    unsupported_individual
-  )
-
-  if (length(requested_unsupported_individual) > 0) {
-    msg <- paste0(
-      paste(requested_unsupported_individual, collapse = ", "),
-      " not supported for --input_format ",
-      input_format,
-      "."
-    )
-
-    if (explicit_metrics) {
-      return(list(success = FALSE, error = msg))
-    }
-
-    message(
-      paste0(
-        paste(requested_unsupported_individual, collapse = ", "),
-        " skipped for --input_format ",
-        input_format,
-        "."
-      )
-    )
-    individual_to_compute <- setdiff(
-      individual_to_compute,
-      requested_unsupported_individual
-    )
-  }
-
   if (gc_requested && identical(input_format, "fgbio")) {
     msg <- paste(
       "GC metrics are not supported for",

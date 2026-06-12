@@ -30,12 +30,11 @@ Family stats
 ### Supported input formats
 
 - `rinfo` (default): supports all currently available metrics.
-- `fgbio`: supports `efficiency`,
+- `fgbio`: supports `frac_singletons`, `efficiency`,
   `drop_out_rate`, and family stats from fgbio
   `CollectDuplexSeqMetrics` `*.duplex_family_sizes.txt` output.
   GC metrics are not available for this format because the table does
-  not contain genomic coordinates, and `frac_singletons` is not
-  supported for this format.
+  not contain genomic coordinates.
 
 ## Implementation overview
 
@@ -229,7 +228,7 @@ calc-duplex-metrics \
   --input data/NanoMB1Rep1.duplex_seq_metrics.duplex_family_sizes.txt \
   --input_format fgbio \
   --output out/fgbio_metrics.csv \
-  --metrics efficiency,drop_out_rate,family
+  --metrics frac_singletons,efficiency,drop_out_rate,family
 ```
 
 To deactivate the conda environment when finished:
@@ -323,7 +322,8 @@ Optional:
                      (default: all)
 
                      Note: for fgbio input, supported
-                     metrics are efficiency, drop_out_rate, and family.
+                     metrics are frac_singletons, efficiency,
+                     drop_out_rate, and family.
 
       --cores        Number of CPU cores for parallel processing (default: 1)
 
