@@ -50,7 +50,8 @@ calculate_family_stats <- function(rbs) {
     families_gt1 = sum(rbs$x > 1 | rbs$y > 1),
     single_families = sum(rbs$x == 1 & rbs$y == 0 | rbs$x == 0 & rbs$y == 1),
     paired_families = sum(rbs$x > 0 & rbs$y > 0),
-    paired_and_gt1 = sum(rbs$x > 1 & rbs$y > 1)
+    paired_and_gt1 = sum(rbs$x > 1 & rbs$y > 1),
+    frac_singletons = calculate_singletons(rbs)
   )
 }
 
@@ -397,7 +398,8 @@ calculate_family_stats_fgbio <- function(metrics_tbl) {
     ]),
     paired_and_gt1 = sum(metrics_tbl$count[
       metrics_tbl$ab_size > 1 & metrics_tbl$ba_size > 1
-    ])
+    ]),
+    frac_singletons = calculate_singletons_fgbio(metrics_tbl)
   )
 }
 
@@ -465,13 +467,14 @@ calculate_missed_frac_fgbio <- function(metrics_tbl) {
 }
 
 # --- Metric grouping / selection ---------
-.individual_metrics <- c("frac_singletons", "efficiency", "drop_out_rate")
+.individual_metrics <- c("efficiency", "drop_out_rate")
 
 .metric_groups <- list(
   gc = c("gc_single", "gc_both", "gc_deviation"),
   family = c(
     "total_families", "family_mean", "family_median", "family_max",
-    "families_gt1", "single_families", "paired_families", "paired_and_gt1"
+    "families_gt1", "single_families", "paired_families", "paired_and_gt1",
+    "frac_singletons"
   )
 )
 
@@ -479,7 +482,7 @@ calculate_missed_frac_fgbio <- function(metrics_tbl) {
 # Resolve --metrics into:
 # - groups: grouped metrics to compute (gc/family)
 # - individual: other metrics to compute individually (efficiency,
-#   drop_out_rate, frac_singletons)
+#   drop_out_rate)
 #
 # Rules:
 # - empty / NULL -> compute all available metrics
@@ -556,9 +559,6 @@ calculate_metrics_selected <- function(
 
     fgbio_tbl <- validate_fgbio_duplex_family_sizes(rbs)
 
-    if ("frac_singletons" %in% individual) {
-      metrics$frac_singletons <- calculate_singletons_fgbio(fgbio_tbl)
-    }
     if ("efficiency" %in% individual) {
       metrics$efficiency <- calculate_efficiency_fgbio(
         fgbio_tbl,
@@ -578,9 +578,6 @@ calculate_metrics_selected <- function(
     return(as.data.frame(metrics, check.names = FALSE))
   }
 
-  if ("frac_singletons" %in% individual) {
-    metrics$frac_singletons <- calculate_singletons(rbs)
-  }
   if ("efficiency" %in% individual) {
     metrics$efficiency <- calculate_efficiency(rbs, rlen = rlen, skips = skips)
   }

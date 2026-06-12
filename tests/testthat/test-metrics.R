@@ -65,7 +65,9 @@ test_that("calculate_family_stats returns named vector with expected names", {
   expect_type(stats, "double")
   expect_named(stats, c("total_families", "family_mean", "family_median",
                         "family_max", "families_gt1", "single_families",
-                        "paired_families", "paired_and_gt1"))
+                        "paired_families", "paired_and_gt1",
+                        "frac_singletons"))
+  expect_equal(tail(names(stats), 1), "frac_singletons")
 })
 
 test_that("calculate_family_stats returns correct known values", {
@@ -245,8 +247,14 @@ test_that("calculate_gc returns expected GC metrics when reference provided", {
 test_that("resolve_metric_selection default selects all", {
   sel <- resolve_metric_selection()
   expect_true(all(c("gc", "family") %in% sel$groups))
-  expect_true(all(c("frac_singletons", "efficiency", "drop_out_rate") %in%
-                    sel$individual))
+  expect_true(all(c("efficiency", "drop_out_rate") %in% sel$individual))
+  expect_false("frac_singletons" %in% sel$individual)
+})
+
+test_that("resolve_metric_selection maps frac_singletons to family group", {
+  sel <- resolve_metric_selection("frac_singletons")
+  expect_equal(sel$groups, "family")
+  expect_equal(sel$individual, character(0))
 })
 
 test_that("resolve_metric_selection errors on unknown metric", {
@@ -264,7 +272,7 @@ test_that("calculate_metrics_selected returns 1-row data.frame", {
   res <- calculate_metrics_selected(
     rinfo,
     groups = "family",
-    individual = "frac_singletons",
+    individual = character(0),
     rlen = rlen,
     skips = skips 
   )
@@ -272,6 +280,7 @@ test_that("calculate_metrics_selected returns 1-row data.frame", {
   expect_equal(nrow(res), 1)
   expect_true("frac_singletons" %in% colnames(res))
   expect_true("family_mean" %in% colnames(res))
+  expect_equal(tail(colnames(res), 1), "frac_singletons")
 })
 
 test_that("calculate_metrics_selected errors if GC selected w/o ref genome", {
@@ -293,7 +302,7 @@ test_that("calculate_metrics_selected supports fgbio duplex family size input", 
   res <- calculate_metrics_selected(
     fgbio_family_sizes,
     groups = "family",
-    individual = c("frac_singletons", "efficiency", "drop_out_rate"),
+    individual = c("efficiency", "drop_out_rate"),
     rlen = rlen,
     skips = skips,
     input_format = "fgbio"
@@ -312,6 +321,7 @@ test_that("calculate_metrics_selected supports fgbio duplex family size input", 
   expect_equal(res$single_families[[1]], 1601609)
   expect_equal(res$paired_families[[1]], 9892573)
   expect_equal(res$paired_and_gt1[[1]], 8206722)
+  expect_equal(tail(colnames(res), 1), "frac_singletons")
 })
 
 test_that("calculate_metrics_selected rejects unsupported fgbio GC metrics", {
@@ -363,4 +373,5 @@ test_that("process_data includes frac_singletons for fgbio all metrics", {
     "paired_families",
     "paired_and_gt1"
   ) %in% out_tbl$metric))
+  expect_equal(tail(out_tbl$metric, 1), "frac_singletons")
 })

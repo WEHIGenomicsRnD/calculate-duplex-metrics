@@ -6,7 +6,6 @@ metrics.
 ### Available metrics
 
 Individual metrics (selectable individually)
-- frac_singletons
 - efficiency
 - drop_out_rate
 
@@ -26,6 +25,7 @@ Family stats
 - single_families
 - paired_families
 - paired_and_gt1
+- frac_singletons
 
 ### Supported input formats
 
@@ -317,7 +317,7 @@ Optional:
                      - fgbio
 
       --metrics      Comma-separated list of metrics and/or metric groups
-                     - Individual: frac_singletons, efficiency, drop_out_rate
+                     - Individual: efficiency, drop_out_rate
                      - Groups: gc, family
                      (default: all)
 
@@ -344,7 +344,6 @@ sample,metric,value
 
 ```
 sample,metric,value
-NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,frac_singletons,0.0418706803079419
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,efficiency,0.0490258329591602
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,drop_out_rate,0.320805646128878
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,total_families,23825702
@@ -355,6 +354,7 @@ NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,families_gt1,16771629
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,single_families,6731955
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,paired_families,9994045
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,paired_and_gt1,8152302
+NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,frac_singletons,0.0418706803079419
 
 ```
 

@@ -100,7 +100,7 @@ parse_arguments <- function() {
     help = paste(
       "Comma-separated metric groups or metric names. Default: all.",
       "Groups: gc,family.",
-      "Individual: frac_singletons,efficiency,drop_out_rate.",
+      "Individual: efficiency,drop_out_rate.",
       "You may also specify grouped metrics (e.g. gc_single or family_mean)",
       "and the full group will be computed"
     )
