@@ -25,7 +25,8 @@ missing_packages <-
 
 if (length(missing_packages) > 0) {
   stop(
-    "Missing required package(s): ", paste(missing_packages, collapse = ", "), "\n",
+    "Missing required package(s): ",
+    paste(missing_packages, collapse = ", "), "\n",
     "Please run renv::restore() before running this script.",
     call. = FALSE
   )
@@ -38,7 +39,7 @@ suppressPackageStartupMessages({
 
 # Source all package files explicitly for local renv use
 # (In the installed package these are loaded automatically by R)
-source("R/calculate_nanoseq_functions.R")
+source("R/metric_functions.R")
 source("R/calculate.R")
 source("R/cli.R")
 main()

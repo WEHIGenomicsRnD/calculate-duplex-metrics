@@ -1,11 +1,11 @@
 # Calculate Duplex Metrics
 
-An R CLI tool to take in summarised read information and output a variety of duplex metrics.
+An R CLI tool to take in summarised read information and output duplex
+metrics.
 
 ### Available metrics
 
 Individual metrics (selectable individually)
-- frac_singletons
 - efficiency
 - drop_out_rate
 
@@ -25,13 +25,23 @@ Family stats
 - single_families
 - paired_families
 - paired_and_gt1
+- frac_singletons
+
+### Supported input formats
+
+- `rinfo` (default): supports all currently available metrics.
+- `fgbio`: supports `frac_singletons`, `efficiency`,
+  `drop_out_rate`, and family stats from fgbio
+  `CollectDuplexSeqMetrics` `*.duplex_family_sizes.txt` output.
+  GC metrics are not available for this format because the table does
+  not contain genomic coordinates.
 
 ## Implementation overview
 
 - The CLI entrypoint is `main.R`
 - Argument parsing and validation are handled in `cli.R`
 - Metric execution logic is in `calculate.R`
-- Core metric implementations are defined in `R/calculate_nanoseq_functions.R`
+- Core metric implementations are defined in `R/metric_functions.R`
 
 Metric selection is resolved **before computation**.  
 Only the requested individual metrics and/or metric groups are evaluated.
@@ -42,6 +52,8 @@ Only the requested individual metrics and/or metric groups are evaluated.
   - If `--ref_fasta` is not provided, GC metrics are skipped and a message is printed to the console.
   - If `--ref_fasta` is provided, GC metrics are computed (may return NA if insufficient data).
 - If GC metrics are explicitly requested (e.g. `--metrics gc`) but no reference FASTA is supplied, the program exits with an error.
+- If `--input_format fgbio` is used, GC metrics are
+  always skipped in default mode and rejected when requested explicitly.
 
 
 ## Installation and Usage
@@ -191,10 +203,32 @@ This method uses Conda to manage the R environment and dependencies, then instal
 
 #### Default Usage Example
 
+Validate that the CLI can be called:
+
+```bash
+# Installed package (Docker / conda):
+calc-duplex-metrics --help
+
+# Local renv development:
+Rscript main.R --help
+```
+
+Basic usage is as follows:
+
 ```bash
 calc-duplex-metrics \
   --input data/test.rinfo \
   --output out/default.csv
+```
+
+For fgbio duplex family size input, set `--input_format` explicitly:
+
+```bash
+calc-duplex-metrics \
+  --input data/NanoMB1Rep1.duplex_seq_metrics.duplex_family_sizes.txt \
+  --input_format fgbio \
+  --output out/fgbio_metrics.csv \
+  --metrics frac_singletons,efficiency,drop_out_rate,family
 ```
 
 To deactivate the conda environment when finished:
@@ -259,7 +293,8 @@ Rscript main.R \
 
 ``` bash
 Required:
-  -i, --input        One or more input rinfo files OR a directory containing rinfo files (.txt or .txt.gz)
+  -i, --input        One or more metric input files OR a directory
+                     containing metric input files (.txt or .txt.gz)
                      Note: when --input is a directory, the tool selects matching files using --pattern (default: \.txt(\.gz)?$);
                            when --input is a list of files, --pattern is ignored
   -o, --output       Output CSV path (long format)
@@ -277,10 +312,18 @@ Optional:
 
       --ref_fasta    Reference genome FASTA (required for GC metrics)
 
+      --input_format Input format (default: rinfo)
+                     - rinfo
+                     - fgbio
+
       --metrics      Comma-separated list of metrics and/or metric groups
-                     - Individual: frac_singletons, efficiency, drop_out_rate
+                     - Individual: efficiency, drop_out_rate
                      - Groups: gc, family
                      (default: all)
+
+                     Note: for fgbio input, supported
+                     metrics are frac_singletons, efficiency,
+                     drop_out_rate, and family.
 
       --cores        Number of CPU cores for parallel processing (default: 1)
 
@@ -301,7 +344,6 @@ sample,metric,value
 
 ```
 sample,metric,value
-NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,frac_singletons,0.0418706803079419
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,efficiency,0.0490258329591602
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,drop_out_rate,0.320805646128878
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,total_families,23825702
@@ -312,18 +354,11 @@ NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,families_gt1,16771629
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,single_families,6731955
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,paired_families,9994045
 NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,paired_and_gt1,8152302
+NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001,frac_singletons,0.0418706803079419
 
 ```
-
 
 #### Sanity check the CLI
-```bash
-# Installed package (Docker / conda):
-calc-duplex-metrics --help
-
-# Local renv development:
-Rscript main.R --help
-```
 
 ## Testing
 Test that functions return valid numeric values, correct handling of edge cases (NA, zero reads, invalid inputs) and presence of expected metrics names.
