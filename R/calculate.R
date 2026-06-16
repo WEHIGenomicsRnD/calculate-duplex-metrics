@@ -74,6 +74,40 @@ parse_samples <- function(sample_arg, inputs) {
   samples
 }
 
+read_target_bed <- function(target_bed) {
+  target_tbl <- data.table::fread(target_bed, header = FALSE,
+                                  data.table = FALSE)
+  if (nrow(target_tbl) == 0) {
+    stop("Target BED is empty: ", target_bed)
+  }
+  if (ncol(target_tbl) < 3) {
+    stop("Target BED must have at least 3 columns: chrom, start, end")
+  }
+
+  target_tbl <- target_tbl[, 1:3, drop = FALSE]
+  colnames(target_tbl) <- c("chrom", "start", "end")
+
+  if (anyNA(target_tbl$chrom) || anyNA(target_tbl$start) ||
+        anyNA(target_tbl$end)) {
+    stop("Target BED contains missing values in required columns.")
+  }
+  if (any(target_tbl$start < 0) || any(target_tbl$end <= target_tbl$start)) {
+    stop(
+      "Target BED has invalid coordinates; require start >= 0 and end > start."
+    )
+  }
+
+  GenomicRanges::reduce(
+    GenomicRanges::GRanges(
+      seqnames = target_tbl$chrom,
+      ranges = IRanges::IRanges(
+        start = as.integer(target_tbl$start) + 1L,
+        end = as.integer(target_tbl$end)
+      )
+    )
+  )
+}
+
 
 
 calc_metrics_one_file_df <- function(
@@ -85,7 +119,8 @@ calc_metrics_one_file_df <- function(
   groups_to_compute,
   individual_to_compute,
   genome_file = NULL,
-  genome_max = NULL
+  genome_max = NULL,
+  target_regions = NULL
 ) {
   in_file <- normalizePath(input, mustWork = TRUE)
 
@@ -96,7 +131,7 @@ calc_metrics_one_file_df <- function(
   rbs <- tryCatch(fread(in_file), error = function(e) e)
   if (inherits(rbs, "error")) stop("Failed to read input: ", rbs$message)
 
-  tbl <- tryCatch(
+  tbl <- tryCatch( # nolint
     calculate_metrics_selected(
       rbs,
       groups = groups_to_compute,
@@ -105,7 +140,8 @@ calc_metrics_one_file_df <- function(
       skips = skips,
       input_format = input_format,
       genome_file = genome_file,
-      genome_max = genome_max
+      genome_max = genome_max,
+      target_regions = target_regions
     ),
     error = function(e) e
   )
@@ -133,7 +169,8 @@ calc_metrics_many_files_df <- function(
   individual_to_compute,
   cores = 1,
   genome_file = NULL,
-  genome_max = NULL
+  genome_max = NULL,
+  target_regions = NULL
 ) {
   inputs <- normalizePath(inputs, mustWork = TRUE)
 
@@ -147,7 +184,8 @@ calc_metrics_many_files_df <- function(
       groups_to_compute = groups_to_compute,
       individual_to_compute = individual_to_compute,
       genome_file = genome_file,
-      genome_max = genome_max
+      genome_max = genome_max,
+      target_regions = target_regions
     )
   }
 
@@ -175,6 +213,7 @@ process_data <- function(
   rlen = 151,
   skips = 5,
   ref_fasta = "",
+  target_bed = "",
   metrics = "all",
   cores = 1,
   input_format = "rinfo"
@@ -196,7 +235,7 @@ process_data <- function(
   }
 
   input_format <- tryCatch(
-    normalize_input_format(input_format),
+    normalise_input_format(input_format),
     error = function(e) e
   )
   if (inherits(input_format, "error")) {
@@ -215,6 +254,9 @@ process_data <- function(
 
   if (nzchar(ref_fasta)) {
     ref_fasta <- normalizePath(ref_fasta, mustWork = FALSE)
+  }
+  if (nzchar(target_bed)) {
+    target_bed <- normalizePath(target_bed, mustWork = FALSE)
   }
 
   # Consolidated GC gating
@@ -240,6 +282,13 @@ process_data <- function(
 
     message("GC metrics skipped for fgbio duplex family size input.")
     groups_to_compute <- setdiff(groups_to_compute, "gc")
+  }
+
+  if (nzchar(target_bed) && identical(input_format, "fgbio")) {
+    return(list(
+      success = FALSE,
+      error = "on_target_rate is not supported for --input_format fgbio."
+    ))
   }
 
   # If GC is requested but we can't compute it:
@@ -272,12 +321,28 @@ process_data <- function(
   # Prepare genome objects once (only when GC requested)
   genome_file <- NULL
   genome_max <- NULL
+  target_regions <- NULL
 
   if ("gc" %in% groups_to_compute) {
     genome_file <- Rsamtools::FaFile(ref_fasta)
     fa <- Biostrings::readDNAStringSet(ref_fasta)
     fa_names <- sub("\\s.*$", "", names(fa))
     genome_max <- setNames(as.integer(Biostrings::width(fa)), fa_names)
+  }
+  if (nzchar(target_bed)) {
+    if (!file.exists(target_bed)) {
+      return(list(
+        success = FALSE,
+        error = paste0("Target BED not found at: ", target_bed)
+      ))
+    }
+    target_regions <- tryCatch(
+      read_target_bed(target_bed),
+      error = function(e) e
+    )
+    if (inherits(target_regions, "error")) {
+      return(list(success = FALSE, error = target_regions$message))
+    }
   }
 
 
@@ -296,7 +361,8 @@ process_data <- function(
         groups_to_compute = groups_to_compute,
         individual_to_compute = individual_to_compute,
         genome_file = genome_file,
-        genome_max = genome_max
+        genome_max = genome_max,
+        target_regions = target_regions
       )
     } else {
       calc_metrics_many_files_df(
@@ -309,7 +375,8 @@ process_data <- function(
         individual_to_compute = individual_to_compute,
         cores = cores,
         genome_file = genome_file,
-        genome_max = genome_max
+        genome_max = genome_max,
+        target_regions = target_regions
       )
     }
   }, error = function(e) e)

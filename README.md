@@ -27,6 +27,9 @@ Family stats
 - paired_and_gt1
 - frac_singletons
 
+Additional optional metric
+- on_target_rate (computed when `--target_bed` is supplied)
+
 ### Supported input formats
 
 - `rinfo` (default): supports all currently available metrics.
@@ -34,7 +37,8 @@ Family stats
   `drop_out_rate`, and family stats from fgbio
   `CollectDuplexSeqMetrics` `*.duplex_family_sizes.txt` output.
   GC metrics are not available for this format because the table does
-  not contain genomic coordinates.
+  not contain genomic coordinates. `on_target_rate` is also unavailable
+  because fgbio duplex family-size input does not include read positions.
 
 ## Implementation overview
 
@@ -311,6 +315,9 @@ Optional:
       --skips        Trimmed / ignored bases per read (NanoSeq = 5, xGen = 8)
 
       --ref_fasta    Reference genome FASTA (required for GC metrics)
+      --target_bed   Optional BED file of target regions.
+                     If supplied, on_target_rate is computed.
+                     Not supported for --input_format fgbio.
 
       --input_format Input format (default: rinfo)
                      - rinfo

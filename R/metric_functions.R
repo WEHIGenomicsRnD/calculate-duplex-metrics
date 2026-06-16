@@ -99,6 +99,36 @@ calculate_missed_fraction <- function(rbs) {
   total_missed / den
 }
 
+# Calculate on-target rate from read info and a GRanges object
+# corresponding to target regions. It is approximate because we
+# don't know the actual end of the read from the rinfo file.
+calculate_on_target_rate <- function(rbs, grx, rlen) {
+  required_cols <- c("chrom", "pos", "mpos", "x", "y")
+  missing_cols <- setdiff(required_cols, names(rbs))
+  if (length(missing_cols) > 0) {
+    stop(
+      "on_target_rate requires columns: ",
+      paste(required_cols, collapse = ", "),
+      ". Missing: ",
+      paste(missing_cols, collapse = ", ")
+    )
+  }
+
+  total_reads <- (sum(rbs$x) + sum(rbs$y)) * 2
+  total_reads <- as.double(total_reads)
+  if (total_reads == 0) return(NA_real_)
+
+  rbx <- GenomicRanges::GRanges(seqnames = rbs$chrom,
+                                ranges = IRanges(start = rbs$pos,
+                                                 end = rbs$mpos + (rlen * 2)))
+  rbs_olaps <- GenomicRanges::findOverlaps(rbx, grx) |>
+    S4Vectors::queryHits() |>
+    unique()
+  on_target_reads <- (
+    sum(rbs[rbs_olaps, ]$x) + sum(rbs[rbs_olaps, ]$y)
+  ) * 2
+  as.double(on_target_reads) / total_reads
+}
 
 # from cancerit/NanoSeq documentation:
 # The GC content of RBs with both strands and with just one strand.
@@ -321,7 +351,7 @@ calculate_gc <- function(
 
 .supported_input_formats <- c("rinfo", "fgbio")
 
-normalize_input_format <- function(input_format = "rinfo") {
+normalise_input_format <- function(input_format = "rinfo") {
   input_format <- tolower(trimws(input_format))
 
   if (!nzchar(input_format) || !input_format %in% .supported_input_formats) {
@@ -335,7 +365,8 @@ normalize_input_format <- function(input_format = "rinfo") {
   input_format
 }
 
-validate_fgbio_duplex_family_sizes <- function(metrics_tbl) {
+# --- fgbio metric functions ---------
+validate_fgbio_family_sizes <- function(metrics_tbl) {
   required_cols <- c("ab_size", "ba_size", "count")
   missing_cols <- setdiff(required_cols, names(metrics_tbl))
 
@@ -375,7 +406,7 @@ calculate_weighted_median <- function(values, weights) {
 }
 
 calculate_family_stats_fgbio <- function(metrics_tbl) {
-  metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
+  metrics_tbl <- validate_fgbio_family_sizes(metrics_tbl)
 
   family_size <- metrics_tbl$ab_size + metrics_tbl$ba_size
   total_families <- sum(metrics_tbl$count)
@@ -404,9 +435,11 @@ calculate_family_stats_fgbio <- function(metrics_tbl) {
 }
 
 calculate_singletons_fgbio <- function(metrics_tbl) {
-  metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
+  metrics_tbl <- validate_fgbio_family_sizes(metrics_tbl)
 
-  total_reads <- sum((metrics_tbl$ab_size + metrics_tbl$ba_size) * metrics_tbl$count)
+  total_reads <- sum(
+    (metrics_tbl$ab_size + metrics_tbl$ba_size) * metrics_tbl$count
+  )
   total_reads <- as.double(total_reads)
   if (total_reads == 0) return(NA_real_)
 
@@ -418,7 +451,7 @@ calculate_singletons_fgbio <- function(metrics_tbl) {
 }
 
 calculate_efficiency_fgbio <- function(metrics_tbl, rlen, skips) {
-  metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
+  metrics_tbl <- validate_fgbio_family_sizes(metrics_tbl)
 
   if (is.na(rlen) || rlen <= 0) stop("rlen must be positive")
   if (is.na(skips) || skips < 0) stop("skips must be >= 0")
@@ -441,7 +474,7 @@ calculate_efficiency_fgbio <- function(metrics_tbl, rlen, skips) {
 }
 
 calculate_missed_frac_fgbio <- function(metrics_tbl) {
-  metrics_tbl <- validate_fgbio_duplex_family_sizes(metrics_tbl)
+  metrics_tbl <- validate_fgbio_family_sizes(metrics_tbl)
 
   family_size <- pmin(metrics_tbl$ab_size + metrics_tbl$ba_size, 10)
   total_missed <- 0
@@ -544,9 +577,10 @@ calculate_metrics_selected <- function(
   skips,
   input_format = "rinfo",
   genome_file = NULL,
-  genome_max = NULL
+  genome_max = NULL,
+  target_regions = NULL
 ) {
-  input_format <- normalize_input_format(input_format)
+  input_format <- normalise_input_format(input_format)
   metrics <- list()
 
   if (input_format == "fgbio") {
@@ -557,7 +591,7 @@ calculate_metrics_selected <- function(
       )
     }
 
-    fgbio_tbl <- validate_fgbio_duplex_family_sizes(rbs)
+    fgbio_tbl <- validate_fgbio_family_sizes(rbs)
 
     if ("efficiency" %in% individual) {
       metrics$efficiency <- calculate_efficiency_fgbio(
@@ -573,6 +607,10 @@ calculate_metrics_selected <- function(
     if ("family" %in% groups) {
       fam_stats <- calculate_family_stats_fgbio(fgbio_tbl)
       metrics <- c(metrics, as.list(fam_stats))
+    }
+
+    if (!is.null(target_regions)) {
+      stop("on_target_rate is not supported for --input_format fgbio.")
     }
 
     return(as.data.frame(metrics, check.names = FALSE))
@@ -605,6 +643,14 @@ calculate_metrics_selected <- function(
   if ("family" %in% groups) {
     fam_stats <- calculate_family_stats(rbs)
     metrics <- c(metrics, as.list(fam_stats))
+  }
+
+  if (!is.null(target_regions)) {
+    metrics$on_target_rate <- calculate_on_target_rate(
+      rbs,
+      grx = target_regions,
+      rlen = rlen
+    )
   }
 
   as.data.frame(metrics, check.names = FALSE)

@@ -27,6 +27,7 @@ main <- function() {
     rlen      = args$rlen,
     skips     = args$skips,
     ref_fasta = args$ref_fasta,
+    target_bed = args$target_bed,
     metrics   = args$metrics,
     cores     = args$cores,
     input_format = args$input_format
@@ -62,15 +63,11 @@ parse_arguments <- function() {
       "--input a.txt,b.txt.gz"
     )
   )
-  p$add_argument(
-    "--pattern", default = "\\.txt(\\.gz)?$",
-    help = paste("Regex pattern used only when --input is a directory",
-                 "(default: \\.txt(\\.gz)?$)")
-  )
-
+  p$add_argument("--pattern", default = "\\.txt(\\.gz)?$",
+                 help = paste("Regex pattern used only when --input is a",
+                              "directory (default: \\.txt(\\.gz)?$)"))
   p$add_argument("--cores", type = "integer", default = 1,
                  help = "Number of cores for parallel processing (default: 1)")
-
   p$add_argument("-o", "--output", required = TRUE,
                  help = "Output CSV path (long format: sample,metric,value)")
   p$add_argument("-s", "--sample", default = NULL,
@@ -85,33 +82,38 @@ parse_arguments <- function() {
   p$add_argument("--ref_fasta", default = "",
                  help = paste("Optional reference genome object (.fasta file).",
                               "GC metrics are skipped if not provided."))
-  p$add_argument(
-    "--input_format",
-    default = "rinfo",
-    choices = .supported_input_formats,
-    help = paste(
-      "Input format (default: rinfo).",
-      "Use fgbio for",
-      "CollectDuplexSeqMetrics duplex_family_sizes tables."
-    )
-  )
-  p$add_argument(
-    "--metrics", default = "all",
-    help = paste(
-      "Comma-separated metric groups or metric names. Default: all.",
-      "Groups: gc,family.",
-      "Individual: efficiency,drop_out_rate.",
-      "You may also specify grouped metrics (e.g. gc_single or family_mean)",
-      "and the full group will be computed"
-    )
-  )
+  p$add_argument("--target_bed", default = "",
+                 help = paste("Optional BED file of target regions.",
+                              "If provided, on_target_rate is also calculated.",
+                              "Not supported for --input_format fgbio."))
+  p$add_argument("--input_format", default = "rinfo",
+                 choices = .supported_input_formats,
+                 help = paste("Input format (default: rinfo).",
+                              "Use fgbio for CollectDuplexSeqMetrics",
+                              "duplex_family_sizes tables."))
+  p$add_argument("--metrics", default = "all",
+                 help = paste("Comma-separated metric groups or metric names.",
+                              "Default: all. Groups: gc,family.",
+                              "Individual: efficiency,drop_out_rate.",
+                              "You may also specify grouped metrics (e.g.",
+                              "gc_single or family_mean) and the full group",
+                              "will be computed"))
 
   args <- p$parse_args()
 
   if (!is.null(args$metrics) && nzchar(args$metrics)) {
     args$metrics <- tolower(gsub("\\s+", "", args$metrics))
   }
-  args$input_format <- normalize_input_format(args$input_format)
+  args$input_format <- normalise_input_format(args$input_format)
+
+  if (!is.null(args$target_bed) && nzchar(args$target_bed)) {
+    if (!file.exists(args$target_bed)) {
+      stop("--target_bed not found: ", args$target_bed)
+    }
+    args$target_bed <- normalizePath(args$target_bed, mustWork = TRUE)
+  } else {
+    args$target_bed <- ""
+  }
 
   # validate cores
   if (is.na(args$cores) || args$cores < 1) {

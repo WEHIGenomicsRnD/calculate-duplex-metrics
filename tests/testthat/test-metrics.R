@@ -201,6 +201,26 @@ test_that("fgbio drop-out rate matches expanded family-size input", {
 })
 
 # ------------------------------------------------------------------------------
+# calculate_on_target_rate
+# ------------------------------------------------------------------------------
+
+test_that("calculate_on_target_rate returns expected fraction", {
+  rbs_small <- data.frame(
+    chrom = c("chr1", "chr1"),
+    pos = c(100, 500),
+    mpos = c(120, 520),
+    x = c(1, 1),
+    y = c(1, 1)
+  )
+  grx <- GenomicRanges::GRanges(
+    seqnames = "chr1",
+    ranges = IRanges::IRanges(start = 90, end = 200)
+  )
+
+  expect_equal(calculate_on_target_rate(rbs_small, grx, rlen = 100), 0.5)
+})
+
+# ------------------------------------------------------------------------------
 # calculate_gc
 # ------------------------------------------------------------------------------
 
@@ -338,6 +358,25 @@ test_that("calculate_metrics_selected rejects unsupported fgbio GC metrics", {
   )
 })
 
+test_that("process_data rejects target_bed for fgbio input", {
+  out <- withr::local_tempfile(fileext = ".csv")
+  bed <- withr::local_tempfile(fileext = ".bed")
+  writeLines("chr1\t0\t10", bed)
+
+  res <- process_data(
+    input = fgbio_fixture_path,
+    output = out,
+    rlen = rlen,
+    skips = skips,
+    metrics = "all",
+    target_bed = bed,
+    input_format = "fgbio"
+  )
+
+  expect_false(isTRUE(res$success))
+  expect_match(res$error, "on_target_rate is not supported")
+})
+
 test_that("process_data includes frac_singletons for fgbio all metrics", {
   out <- withr::local_tempfile(fileext = ".csv")
 
@@ -374,4 +413,26 @@ test_that("process_data includes frac_singletons for fgbio all metrics", {
     "paired_and_gt1"
   ) %in% out_tbl$metric))
   expect_equal(tail(out_tbl$metric, 1), "frac_singletons")
+})
+
+test_that("process_data adds on_target_rate when --target_bed is provided", {
+  in_file <- withr::local_tempfile(fileext = ".txt")
+  out <- withr::local_tempfile(fileext = ".csv")
+  bed <- withr::local_tempfile(fileext = ".bed")
+  fwrite(rinfo, in_file, sep = "\t")
+  writeLines("NARG01000001.1\t0\t1000000", bed)
+
+  res <- process_data(
+    input = in_file,
+    output = out,
+    rlen = rlen,
+    skips = skips,
+    metrics = "efficiency",
+    target_bed = bed,
+    input_format = "rinfo"
+  )
+
+  expect_true(isTRUE(res$success))
+  out_tbl <- fread(out)
+  expect_true("on_target_rate" %in% out_tbl$metric)
 })
