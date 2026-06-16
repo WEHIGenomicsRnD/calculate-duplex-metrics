@@ -60,6 +60,15 @@ Only the requested individual metrics and/or metric groups are evaluated.
 - If `--input_format fgbio` is used, GC metrics are
   always skipped in default mode and rejected when requested explicitly.
 
+### On-target rate calculation
+
+The on-target rate calculations are approximate because:
+
+- The current `read_info` format does not include the actual end of the read
+  from the rinfo file, so we are guessing the end coordinate of the read using
+  the read length.
+- The on-target duplex rate is calculated from the bundle counts, but those
+  reads may be further filtered downstream.
 
 ## Installation and Usage
 
@@ -319,6 +328,7 @@ Optional:
       --target_bed   Optional BED file of target regions.
                      If supplied, on_target_rate_raw and
                      on_target_rate_duplex are computed.
+                     Note that these calculations are approximate.
                      Not supported for --input_format fgbio.
       --min_reads    Minimum reads used for on_target_rate_duplex.
                      Used with --target_bed.
