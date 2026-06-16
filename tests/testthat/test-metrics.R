@@ -201,23 +201,38 @@ test_that("fgbio drop-out rate matches expanded family-size input", {
 })
 
 # ------------------------------------------------------------------------------
-# calculate_on_target_rate
+# calculate_on_target_rate_raw / calculate_on_target_rate_duplex
 # ------------------------------------------------------------------------------
 
-test_that("calculate_on_target_rate returns expected fraction", {
+test_that("calculate_on_target_rate_raw and duplex return expected fractions", {
   rbs_small <- data.frame(
     chrom = c("chr1", "chr1"),
     pos = c(100, 500),
     mpos = c(120, 520),
-    x = c(1, 1),
-    y = c(1, 1)
+    x = c(2, 3),
+    y = c(2, 1)
   )
   grx <- GenomicRanges::GRanges(
     seqnames = "chr1",
     ranges = IRanges::IRanges(start = 90, end = 200)
   )
 
-  expect_equal(calculate_on_target_rate(rbs_small, grx, rlen = 100), 0.5)
+  expect_equal(calculate_on_target_rate_raw(rbs_small, grx, rlen = 100), 0.5)
+  expect_equal(
+    calculate_on_target_rate_dup(rbs_small, grx, rlen = 100,
+                                 min_reads = c(4, 2, 2)),
+    1
+  )
+  expect_equal(
+    calculate_on_target_rate_dup(rbs_small, grx, rlen = 100,
+                                 min_reads = c(4, 2, 1)),
+    0.5
+  )
+  expect_equal(
+    calculate_on_target_rate_dup(rbs_small, grx, rlen = 100,
+                                 min_reads = c(4, 1, 2)),
+    0.5
+  )
 })
 
 # ------------------------------------------------------------------------------
@@ -374,7 +389,7 @@ test_that("process_data rejects target_bed for fgbio input", {
   )
 
   expect_false(isTRUE(res$success))
-  expect_match(res$error, "on_target_rate is not supported")
+  expect_match(res$error, "on_target_rate_\\* is not supported")
 })
 
 test_that("process_data includes frac_singletons for fgbio all metrics", {
@@ -415,7 +430,7 @@ test_that("process_data includes frac_singletons for fgbio all metrics", {
   expect_equal(tail(out_tbl$metric, 1), "frac_singletons")
 })
 
-test_that("process_data adds on_target_rate when --target_bed is provided", {
+test_that("process_data adds on_target rates when --target_bed is provided", {
   in_file <- withr::local_tempfile(fileext = ".txt")
   out <- withr::local_tempfile(fileext = ".csv")
   bed <- withr::local_tempfile(fileext = ".bed")
@@ -434,5 +449,5 @@ test_that("process_data adds on_target_rate when --target_bed is provided", {
 
   expect_true(isTRUE(res$success))
   out_tbl <- fread(out)
-  expect_true("on_target_rate" %in% out_tbl$metric)
+  expect_true(all(c("on_target_rate_raw", "on_target_rate_duplex") %in% out_tbl$metric))
 })

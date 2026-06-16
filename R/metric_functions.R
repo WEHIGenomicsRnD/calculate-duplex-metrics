@@ -102,12 +102,12 @@ calculate_missed_fraction <- function(rbs) {
 # Calculate on-target rate from read info and a GRanges object
 # corresponding to target regions. It is approximate because we
 # don't know the actual end of the read from the rinfo file.
-calculate_on_target_rate <- function(rbs, grx, rlen) {
+calculate_on_target_rate_raw <- function(rbs, grx, rlen) {
   required_cols <- c("chrom", "pos", "mpos", "x", "y")
   missing_cols <- setdiff(required_cols, names(rbs))
   if (length(missing_cols) > 0) {
     stop(
-      "on_target_rate requires columns: ",
+      "on_target_rate_raw requires columns: ",
       paste(required_cols, collapse = ", "),
       ". Missing: ",
       paste(missing_cols, collapse = ", ")
@@ -129,6 +129,48 @@ calculate_on_target_rate <- function(rbs, grx, rlen) {
   ) * 2
   as.double(on_target_reads) / total_reads
 }
+
+# Calculate on-target rate from read info using duplex min_read filtering.
+# Approximate calculation only: this estimates duplex consensus  reads from
+# bundle counts, but those reads may be further filtered downstream.
+calculate_on_target_rate_dup <- function(rbs, grx, rlen, min_reads) {
+  required_cols <- c("chrom", "pos", "mpos", "x", "y")
+  missing_cols <- setdiff(required_cols, names(rbs))
+  if (length(missing_cols) > 0) {
+    stop(
+      "on_target_rate_duplex requires columns: ",
+      paste(required_cols, collapse = ", "),
+      ". Missing: ",
+      paste(missing_cols, collapse = ", ")
+    )
+  }
+
+  if (is.null(min_reads)) {
+    min_reads <- c(4L, 2L, 2L)
+  }
+
+  if (is.character(min_reads)) {
+    tokens <- unlist(strsplit(gsub(",", " ", min_reads), "\\s+"))
+    tokens <- tokens[nzchar(tokens)]
+    min_reads <- as.integer(tokens)
+  } else {
+    min_reads <- as.integer(min_reads)
+  }
+  if (length(min_reads) != 3 || anyNA(min_reads) || any(min_reads < 0)) {
+    stop("--min_reads must contain exactly three non-negative integers.")
+  }
+
+  # Test single-strand min read criteria on either strand
+  ss1 <- rbs$x >= min_reads[[2]] & rbs$y >= min_reads[[3]]
+  ss2 <- rbs$x >= min_reads[[3]] & rbs$y >= min_reads[[2]]
+  duplex_rbs <- rbs[rbs$x + rbs$y >= min_reads[[1]] & (ss1 | ss2), ,
+                    drop = FALSE]
+
+  calculate_on_target_rate_raw(duplex_rbs, grx, rlen)
+}
+
+# Backward-compatible alias for existing callers.
+calculate_on_target_rate <- calculate_on_target_rate_raw
 
 # from cancerit/NanoSeq documentation:
 # The GC content of RBs with both strands and with just one strand.
@@ -578,7 +620,8 @@ calculate_metrics_selected <- function(
   input_format = "rinfo",
   genome_file = NULL,
   genome_max = NULL,
-  target_regions = NULL
+  target_regions = NULL,
+  min_reads = NULL
 ) {
   input_format <- normalise_input_format(input_format)
   metrics <- list()
@@ -610,10 +653,14 @@ calculate_metrics_selected <- function(
     }
 
     if (!is.null(target_regions)) {
-      stop("on_target_rate is not supported for --input_format fgbio.")
+      stop("on_target_rate_* is not supported for --input_format fgbio.")
     }
 
     return(as.data.frame(metrics, check.names = FALSE))
+  }
+
+  if (is.null(min_reads)) {
+    min_reads <- c(4L, 2L, 2L)
   }
 
   if ("efficiency" %in% individual) {
@@ -646,10 +693,16 @@ calculate_metrics_selected <- function(
   }
 
   if (!is.null(target_regions)) {
-    metrics$on_target_rate <- calculate_on_target_rate(
+    metrics$on_target_rate_raw <- calculate_on_target_rate_raw(
       rbs,
       grx = target_regions,
       rlen = rlen
+    )
+    metrics$on_target_rate_duplex <- calculate_on_target_rate_dup(
+      rbs,
+      grx = target_regions,
+      rlen = rlen,
+      min_reads = min_reads
     )
   }
 

@@ -108,7 +108,27 @@ read_target_bed <- function(target_bed) {
   )
 }
 
+parse_min_reads <- function(min_reads) {
+  min_reads_default <- "4 2 2"
+  if (is.null(min_reads)) {
+    min_reads <- min_reads_default
+  } else if (is.character(min_reads) && !nzchar(min_reads)) {
+    min_reads <- min_reads_default
+  }
 
+  if (is.character(min_reads)) {
+    tokens <- unlist(strsplit(gsub(",", " ", min_reads), "\\s+"))
+    tokens <- tokens[nzchar(tokens)]
+    vals <- as.integer(tokens)
+  } else {
+    vals <- as.integer(min_reads)
+  }
+  if (length(vals) != 3 || anyNA(vals) || any(vals < 0)) {
+    stop("--min_reads must contain exactly three non-negative integers.")
+  }
+
+  vals
+}
 
 calc_metrics_one_file_df <- function(
   input,
@@ -120,7 +140,8 @@ calc_metrics_one_file_df <- function(
   individual_to_compute,
   genome_file = NULL,
   genome_max = NULL,
-  target_regions = NULL
+  target_regions = NULL,
+  min_reads = NULL
 ) {
   in_file <- normalizePath(input, mustWork = TRUE)
 
@@ -141,7 +162,8 @@ calc_metrics_one_file_df <- function(
       input_format = input_format,
       genome_file = genome_file,
       genome_max = genome_max,
-      target_regions = target_regions
+      target_regions = target_regions,
+      min_reads = min_reads
     ),
     error = function(e) e
   )
@@ -157,8 +179,6 @@ calc_metrics_one_file_df <- function(
   )
 }
 
-
-
 calc_metrics_many_files_df <- function(
   inputs,
   samples,
@@ -170,7 +190,8 @@ calc_metrics_many_files_df <- function(
   cores = 1,
   genome_file = NULL,
   genome_max = NULL,
-  target_regions = NULL
+  target_regions = NULL,
+  min_reads = NULL
 ) {
   inputs <- normalizePath(inputs, mustWork = TRUE)
 
@@ -185,7 +206,8 @@ calc_metrics_many_files_df <- function(
       individual_to_compute = individual_to_compute,
       genome_file = genome_file,
       genome_max = genome_max,
-      target_regions = target_regions
+      target_regions = target_regions,
+      min_reads = min_reads
     )
   }
 
@@ -200,7 +222,6 @@ calc_metrics_many_files_df <- function(
   as.data.frame(data.table::rbindlist(out_list, use.names = TRUE, fill = TRUE))
 }
 
-
 # ------------------------------------------------------------------
 # process_data resolves metric selection, gates GC logic, and
 # dispatches to single- or multi-file helpers. Helpers are pure and
@@ -214,6 +235,7 @@ process_data <- function(
   skips = 5,
   ref_fasta = "",
   target_bed = "",
+  min_reads = "4 2 2",
   metrics = "all",
   cores = 1,
   input_format = "rinfo"
@@ -258,6 +280,16 @@ process_data <- function(
   if (nzchar(target_bed)) {
     target_bed <- normalizePath(target_bed, mustWork = FALSE)
   }
+  min_reads_parsed <- NULL
+  if (nzchar(target_bed)) {
+    min_reads_parsed <- tryCatch(
+      parse_min_reads(min_reads),
+      error = function(e) e
+    )
+    if (inherits(min_reads_parsed, "error")) {
+      return(list(success = FALSE, error = min_reads_parsed$message))
+    }
+  }
 
   # Consolidated GC gating
   gc_requested <- "gc" %in% groups_to_compute
@@ -287,7 +319,7 @@ process_data <- function(
   if (nzchar(target_bed) && identical(input_format, "fgbio")) {
     return(list(
       success = FALSE,
-      error = "on_target_rate is not supported for --input_format fgbio."
+      error = "on_target_rate_* is not supported for --input_format fgbio."
     ))
   }
 
@@ -314,7 +346,8 @@ process_data <- function(
     ref_fasta <- ""
   }
 
-  if (length(groups_to_compute) == 0 && length(individual_to_compute) == 0) {
+  if (length(groups_to_compute) == 0 && length(individual_to_compute) == 0 &&
+        !nzchar(target_bed)) {
     return(list(success = FALSE, error = "No metrics selected to compute."))
   }
 
@@ -362,7 +395,8 @@ process_data <- function(
         individual_to_compute = individual_to_compute,
         genome_file = genome_file,
         genome_max = genome_max,
-        target_regions = target_regions
+        target_regions = target_regions,
+        min_reads = min_reads_parsed
       )
     } else {
       calc_metrics_many_files_df(
@@ -376,7 +410,8 @@ process_data <- function(
         cores = cores,
         genome_file = genome_file,
         genome_max = genome_max,
-        target_regions = target_regions
+        target_regions = target_regions,
+        min_reads = min_reads_parsed
       )
     }
   }, error = function(e) e)

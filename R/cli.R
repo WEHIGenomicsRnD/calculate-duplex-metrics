@@ -28,6 +28,7 @@ main <- function() {
     skips     = args$skips,
     ref_fasta = args$ref_fasta,
     target_bed = args$target_bed,
+    min_reads = args$min_reads,
     metrics   = args$metrics,
     cores     = args$cores,
     input_format = args$input_format
@@ -84,8 +85,15 @@ parse_arguments <- function() {
                               "GC metrics are skipped if not provided."))
   p$add_argument("--target_bed", default = "",
                  help = paste("Optional BED file of target regions.",
-                              "If provided, on_target_rate is also calculated.",
+                              "If provided, on_target_rate_raw and",
+                              "on_target_rate_duplex are calculated.",
+                              "Note that these calculations are approximate.",
                               "Not supported for --input_format fgbio."))
+  p$add_argument("--min_reads", default = "4 2 2",
+                 help = paste("Minimum reads for duplex on-target rate",
+                              "(used with --target_bed).",
+                              "Format: 'total strand1 strand2'",
+                              "(default: 4 2 2). Example: '4 2 1'."))
   p$add_argument("--input_format", default = "rinfo",
                  choices = .supported_input_formats,
                  help = paste("Input format (default: rinfo).",
