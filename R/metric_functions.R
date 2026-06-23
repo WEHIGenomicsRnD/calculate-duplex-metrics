@@ -102,6 +102,8 @@ calculate_missed_fraction <- function(rbs) {
 # Calculate on-target rate from read info and a GRanges object
 # corresponding to target regions. It is approximate because we
 # don't know the actual end of the read from the rinfo file.
+# Uses epos (actual end position) if available, otherwise falls
+# back to mpos + rlen*2.
 calculate_on_target_rate_raw <- function(rbs, grx, rlen) {
   required_cols <- c("chrom", "pos", "mpos", "x", "y")
   missing_cols <- setdiff(required_cols, names(rbs))
@@ -118,9 +120,17 @@ calculate_on_target_rate_raw <- function(rbs, grx, rlen) {
   total_reads <- as.double(total_reads)
   if (total_reads == 0) return(NA_real_)
 
+  # Use epos (actual end position) if available, otherwise estimate
+  # from mpos + rlen*2
+  end_pos <- if ("epos" %in% names(rbs)) {
+    rbs$epos
+  } else {
+    rbs$mpos + (rlen * 2)
+  }
+
   rbx <- GenomicRanges::GRanges(seqnames = rbs$chrom,
                                 ranges = IRanges(start = rbs$pos,
-                                                 end = rbs$mpos + (rlen * 2)))
+                                                 end = end_pos))
   rbs_olaps <- GenomicRanges::findOverlaps(rbx, grx) |>
     S4Vectors::queryHits() |>
     unique()
@@ -185,7 +195,16 @@ calculate_gc <- function(
   max_gap = 100000
 ) {
   rbs <- data.frame(rbs)
-  colnames(rbs)[5:6] <- c("plus", "minus")
+
+  # Rename x/y columns to plus/minus for consistency
+  # Handle both old positional naming and new explicit naming
+  if ("x" %in% names(rbs) && "y" %in% names(rbs)) {
+    names(rbs)[names(rbs) == "x"] <- "plus"
+    names(rbs)[names(rbs) == "y"] <- "minus"
+  } else if (length(names(rbs)) >= 6) {
+    # Fallback to positional if x/y not found (for compatibility)
+    names(rbs)[5:6] <- c("plus", "minus")
+  }
 
   if (is.null(genome_max) || length(genome_max) == 0) {
     warning(paste0(
@@ -220,11 +239,14 @@ calculate_gc <- function(
   }
 
   # compute end and drop invalid ranges early
-  rbs$end <- rbs$pos + rlen - skips
+  # Use epos if available, otherwise compute from pos + rlen - skips
+  if (!("epos" %in% names(rbs))) {
+    rbs$epos <- rbs$pos + rlen - skips
+  }
 
   n_before <- nrow(rbs)
   rbs <- rbs[!is.na(rbs$pos) &
-               !is.na(rbs$end) & rbs$pos > 0 & rbs$end >= rbs$pos, ]
+               !is.na(rbs$epos) & rbs$pos > 0 & rbs$epos >= rbs$pos, ]
   if (nrow(rbs) == 0) {
     warning(paste0(
       "calculate_gc: no records remain after removing ",
@@ -248,10 +270,10 @@ calculate_gc <- function(
     for (i in seq_along(genome_max)) {
       chrom <- names(genome_max)[i]
       chrom_max <- genome_max[[i]]
-      rbs <- rbs[!(rbs$chrom == chrom & rbs$end > chrom_max), ]
+      rbs <- rbs[!(rbs$chrom == chrom & rbs$epos > chrom_max), ]
     }
   } else {
-    rbs <- rbs[rbs$end <= genome_max, ]
+    rbs <- rbs[rbs$epos <= genome_max, ]
   }
   if (nrow(rbs) == 0) {
     warning(paste0(
@@ -275,7 +297,7 @@ calculate_gc <- function(
 
   # remove records with large distances between mates
   n_before <- nrow(rbs)
-  rbs <- rbs[(rbs$end - rbs$pos) < max_gap, ]
+  rbs <- rbs[(rbs$epos - rbs$pos) < max_gap, ]
   if (nrow(rbs) == 0) {
     warning(paste0(
       sprintf(
@@ -340,7 +362,7 @@ calculate_gc <- function(
     genome_file,
     GRanges(
       rbs_both$chrom,
-      IRanges(start = rbs_both$pos, end = rbs_both$end)
+      IRanges(start = rbs_both$pos, end = rbs_both$epos)
     )
   ) |> as.vector()
 
@@ -348,7 +370,7 @@ calculate_gc <- function(
     genome_file,
     GRanges(
       rbs_single$chrom,
-      IRanges(start = rbs_single$pos, end = rbs_single$end)
+      IRanges(start = rbs_single$pos, end = rbs_single$epos)
     )
   ) |> as.vector()
 

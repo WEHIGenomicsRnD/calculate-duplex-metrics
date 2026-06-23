@@ -64,9 +64,9 @@ Only the requested individual metrics and/or metric groups are evaluated.
 
 The on-target rate calculations are approximate because:
 
-- The current `read_info` format does not include the actual end of the read
-  from the rinfo file, so we are guessing the end coordinate of the read using
-  the read length.
+- If the `read_info` format includes an `epos` column (actual end position),
+  it will be used for accurate end coordinates. Otherwise, the end coordinate
+  is estimated using the read length.
 - The on-target duplex rate is calculated from the bundle counts, but those
   reads may be further filtered downstream.
 
