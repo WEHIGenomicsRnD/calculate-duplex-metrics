@@ -27,6 +27,7 @@ Imports:
     magrittr,
     seqinr,
     Rsamtools,
+    GenomicAlignments,
     Biostrings,
     GenomeInfoDb,
     GenomicRanges,

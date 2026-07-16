@@ -413,7 +413,7 @@ calculate_gc <- function(
     gc_deviation = abs(gc_single - gc_both))
 }
 
-.supported_input_formats <- c("rinfo", "fgbio")
+.supported_input_formats <- c("rinfo", "fgbio", "bam")
 
 normalise_input_format <- function(input_format = "rinfo") {
   input_format <- tolower(trimws(input_format))

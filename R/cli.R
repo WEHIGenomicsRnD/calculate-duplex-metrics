@@ -31,7 +31,9 @@ main <- function() {
     min_reads = args$min_reads,
     metrics   = args$metrics,
     cores     = args$cores,
-    input_format = args$input_format
+    input_format = args$input_format,
+    sort_mem  = args$sort_mem,
+    bam_chunk_size = args$bam_chunk_size
   )
 
 
@@ -98,7 +100,19 @@ parse_arguments <- function() {
                  choices = .supported_input_formats,
                  help = paste("Input format (default: rinfo).",
                               "Use fgbio for CollectDuplexSeqMetrics",
-                              "duplex_family_sizes tables."))
+                              "duplex_family_sizes tables. Use bam to",
+                              "compute metrics directly from a single",
+                              "coordinate-sorted BAM file (converted to",
+                              "rinfo internally)."))
+  p$add_argument("--sort_mem", default = "4G",
+                 help = paste("Memory buffer for the external sort step",
+                              "used when --input_format bam (passed to",
+                              "'sort -S'). Default: 4G."))
+  p$add_argument("--bam_chunk_size", type = "integer", default = 2000000L,
+                 help = paste("Number of BAM records read per streaming",
+                              "chunk when --input_format bam (default:",
+                              "2000000). Lower this to reduce memory use",
+                              "on very large BAM files."))
   p$add_argument("--metrics", default = "all",
                  help = paste("Comma-separated metric groups or metric names.",
                               "Default: all. Groups: gc,family.",
@@ -126,6 +140,16 @@ parse_arguments <- function() {
   # validate cores
   if (is.na(args$cores) || args$cores < 1) {
     stop("--cores must be >= 1")
+  }
+
+  # bam-specific validation
+  if (identical(args$input_format, "bam")) {
+    if (is.null(args$sort_mem) || !nzchar(args$sort_mem)) {
+      stop("--sort_mem must not be empty when --input_format bam")
+    }
+    if (is.na(args$bam_chunk_size) || args$bam_chunk_size <= 0) {
+      stop("--bam_chunk_size must be a positive integer")
+    }
   }
 
   # ---- consolidated input resolution ----
@@ -184,6 +208,13 @@ parse_arguments <- function() {
 
   # normalise paths
   args$input <- normalizePath(args$input, mustWork = TRUE)
+
+  # phase-1 restriction: bam input mode supports exactly one BAM file
+  if (identical(args$input_format, "bam") && length(args$input) != 1) {
+    stop(paste("--input_format bam currently supports exactly one BAM file",
+               "per invocation. Provide a single BAM via --input, or run",
+               "the tool once per BAM (e.g. via the snakemake pipeline)."))
+  }
 
   # validate --sample only for explicit file input (dir case already blocked)
   if (!is.null(args$sample) && nzchar(args$sample)) {

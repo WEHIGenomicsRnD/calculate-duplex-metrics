@@ -238,7 +238,9 @@ process_data <- function(
   min_reads = "4 2 2",
   metrics = "all",
   cores = 1,
-  input_format = "rinfo"
+  input_format = "rinfo",
+  sort_mem = "4G",
+  bam_chunk_size = 2000000L
 ) {
   # validate input
   if (is.null(input) || length(input) == 0) {
@@ -262,6 +264,48 @@ process_data <- function(
   )
   if (inherits(input_format, "error")) {
     return(list(success = FALSE, error = input_format$message))
+  }
+
+  # BAM preprocessing: convert a single BAM into a temporary rinfo table,
+  # then continue through the rest of the pipeline as if --input_format
+  # rinfo had been used. Phase 1 supports exactly one BAM per invocation.
+  bam_tmp_file <- NULL
+  if (identical(input_format, "bam")) {
+    if (length(input) != 1) {
+      return(list(
+        success = FALSE,
+        error = paste("--input_format bam currently supports exactly one",
+                      "BAM file per invocation.")
+      ))
+    }
+
+    bam_res <- tryCatch(
+      generate_read_info_from_bam(
+        bam_file = input[1],
+        chunk_size = bam_chunk_size,
+        cores = cores,
+        sort_mem = sort_mem,
+        tmp_dir = tempdir()
+      ),
+      error = function(e) e
+    )
+    if (inherits(bam_res, "error")) {
+      return(list(success = FALSE,
+                  error = paste0("BAM preprocessing failed: ",
+                                 bam_res$message)))
+    }
+
+    bam_tmp_file <- bam_res$output
+    on.exit(if (!is.null(bam_tmp_file)) unlink(bam_tmp_file), add = TRUE)
+
+    # derive a sample name from the original BAM filename before we
+    # overwrite `input` with the temporary rinfo path below
+    if (is.null(sample) || (is.character(sample) && !nzchar(sample))) {
+      sample <- sub("\\.bam$", "", basename(input[1]), ignore.case = TRUE)
+    }
+
+    input <- bam_tmp_file
+    input_format <- "rinfo"
   }
 
   odir <- dirname(output)
