@@ -40,6 +40,10 @@ Additional optional metrics
   GC metrics are not available for this format because the table does
   not contain genomic coordinates. `on_target_rate_*` is also unavailable
   because fgbio duplex family-size input does not include read positions.
+- `bam`: computes metrics directly from a single coordinate-sorted BAM
+  file by first extracting read info internally. BAM mode supports the
+  same downstream metrics as `rinfo`, including GC and on-target metrics
+  when the relevant inputs are supplied.
 
 ## Implementation overview
 
@@ -69,6 +73,8 @@ The on-target rate calculations are approximate because:
   is estimated using the read length.
 - The on-target duplex rate is calculated from the bundle counts, but those
   reads may be further filtered downstream.
+- For BAM input, `epos` is derived from the aligned read end and used for
+  on-target calculations.
 
 ## Installation and Usage
 
@@ -113,8 +119,17 @@ docker run --rm \
   calculate-duplex-metrics \
   calc-duplex-metrics \
   --input data/test.rinfo \
-  --output out/default.csv
+  --output out/metrics.csv
 ```
+
+  To process a BAM file directly:
+
+  ```bash
+  calc-duplex-metrics \
+    --input data/test.bam \
+    --input_format bam \
+    --output out/bam_metrics.csv
+  ```
 
 -   `-v "$(pwd)/data:/app/data"`: This "mounts" your local `data` directory into the `/app/data` directory inside the container, so the script can find the input file.
 -   `-v "$(pwd)/out:/app/out"`: This mounts your local `out` directory into the `/app/out` directory inside the container, so the script can write the output file back to your machine.
@@ -147,7 +162,16 @@ After restoring the environment, you can run the script directly from your termi
 ```bash
 Rscript main.R \
   --input data/test.rinfo \
-  --output out/default.csv
+  --output out/metrics.csv
+```
+
+To process a BAM file directly:
+
+```bash
+Rscript main.R \
+  --input data/test.bam \
+  --input_format bam \
+  --output out/bam_metrics.csv
 ```
 
 ### Option C: Local Installation with `devtools`
@@ -170,7 +194,7 @@ This method installs the required R packages directly onto your system. It is mo
     # Install BiocManager and required Bioconductor packages
     if (!require("BiocManager", quietly = TRUE))
         install.packages("BiocManager")
-    BiocManager::install(c("Rsamtools", "GenomicRanges", "IRanges", "Biostrings"))
+    BiocManager::install(c("Rsamtools", "GenomicAlignments", "GenomicRanges", "IRanges", "Biostrings"))
     ```
 
 3.  **Install the package from GitHub:**
@@ -185,7 +209,16 @@ After installing the dependencies, you can run the script directly from your ter
 ```bash
 Rscript main.R \
   --input data/test.rinfo \
-  --output out/default.csv
+  --output out/metrics.csv
+```
+
+To process a BAM file directly:
+
+```bash
+Rscript main.R \
+  --input data/test.bam \
+  --input_format bam \
+  --output out/bam_metrics.csv
 ```
 
 ### Option D: Using Conda
@@ -232,7 +265,7 @@ Basic usage is as follows:
 ```bash
 calc-duplex-metrics \
   --input data/test.rinfo \
-  --output out/default.csv
+  --output out/metrics.csv
 ```
 
 For fgbio duplex family size input, set `--input_format` explicitly:
@@ -302,6 +335,18 @@ Rscript main.R \
   --cores 2
 ```
 
+#### Example: BAM input mode
+
+``` bash
+Rscript main.R \
+  --input data/test.bam \
+  --input_format bam \
+  --output out/bam_metrics.csv \
+  --cores 4 \
+  --sort_mem 8G \
+  --bam_chunk_size 2000000
+```
+
 
 ### CLI flags
 
@@ -337,6 +382,9 @@ Optional:
       --input_format Input format (default: rinfo)
                      - rinfo
                      - fgbio
+                     - bam
+                     BAM mode converts a single coordinate-sorted BAM
+                     into read-info internally before metric calculation.
 
       --metrics      Comma-separated list of metrics and/or metric groups
                      - Individual: efficiency, drop_out_rate
@@ -348,6 +396,12 @@ Optional:
                      drop_out_rate, and family.
 
       --cores        Number of CPU cores for parallel processing (default: 1)
+
+      --sort_mem     Memory buffer passed to the external sort step used in
+                     BAM mode (default: 4G)
+
+      --bam_chunk_size  Number of BAM records read per chunk in BAM mode
+                        (default: 2000000)
 
 
 ```
