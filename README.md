@@ -30,6 +30,9 @@ Family stats
 Additional optional metrics
 - on_target_rate_raw (computed when `--target_bed` is supplied)
 - on_target_rate_duplex (computed when `--target_bed` is supplied)
+- on_target_coverage_raw (computed when `--target_bed` is supplied)
+- on_target_coverage_duplex (computed when `--target_bed` is supplied)
+- on_target_duplex_ratio (computed when `--target_bed` is supplied; ratio of raw to duplex coverage)
 
 ### Supported input formats
 

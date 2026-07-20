@@ -236,6 +236,94 @@ test_that("calculate_on_target_rate_raw and duplex return expected fractions", {
 })
 
 # ------------------------------------------------------------------------------
+# calculate_on_target_coverage
+# ------------------------------------------------------------------------------
+
+test_that("calculate_on_target_coverage returns expected coverages", {
+  rbs_small <- data.frame(
+    chrom = c("chr1", "chr1"),
+    pos = c(100, 500),
+    mpos = c(120, 520),
+    x = c(2, 3),
+    y = c(2, 1)
+  )
+  grx <- GenomicRanges::GRanges(
+    seqnames = "chr1",
+    ranges = IRanges::IRanges(start = 90, end = 200)
+  )
+  # target width = 111 (90-200 inclusive); rlen=100, skips=0 -> 200 bases/bundle
+  # on-target bundle: pos=100 only (pos=500 doesn't overlap [90,200])
+  # raw: (x+y) = 2+2 = 4 read-pairs * 200 bases = 800; 800/111
+  # duplex (4 2 2): x=2,y=2 -> total=4, x>=2, y>=2 -> PASS; 1 bundle * 200/111
+  cov <- calculate_on_target_coverage(rbs_small, rlen = 100, skips = 0,
+                                      grx = grx, min_reads = c(4, 2, 2))
+  expect_named(cov, c("on_target_coverage_raw", "on_target_coverage_duplex",
+                      "on_target_duplex_ratio"))
+  expect_equal(as.numeric(cov["on_target_coverage_raw"]),  800 / 111, tolerance = 1e-8)
+  expect_equal(as.numeric(cov["on_target_coverage_duplex"]), 200 / 111, tolerance = 1e-8)
+  expect_equal(as.numeric(cov["on_target_duplex_ratio"]), 4.0, tolerance = 1e-8)
+})
+
+test_that("calculate_on_target_coverage: empty target returns NA", {
+  rbs_small <- data.frame(
+    chrom = c("chr1"),
+    pos = c(100),
+    mpos = c(120),
+    x = c(3),
+    y = c(3)
+  )
+  grx_empty <- GenomicRanges::GRanges()
+  cov <- calculate_on_target_coverage(rbs_small, rlen = 100, skips = 0,
+                                      grx = grx_empty, min_reads = c(4, 2, 2))
+  expect_true(is.na(cov["on_target_coverage_raw"]))
+  expect_true(is.na(cov["on_target_coverage_duplex"]))
+})
+
+test_that("calculate_on_target_coverage: no bundles pass duplex filter -> duplex coverage 0", {
+  rbs_small <- data.frame(
+    chrom = c("chr1"),
+    pos = c(100),
+    mpos = c(120),
+    x = c(1),
+    y = c(1)
+  )
+  grx <- GenomicRanges::GRanges("chr1", IRanges::IRanges(50, 300))
+  # total=2 < min_reads[1]=4, so no bundles pass duplex filter
+  cov <- calculate_on_target_coverage(rbs_small, rlen = 100, skips = 0,
+                                      grx = grx, min_reads = c(4, 2, 2))
+  expect_equal(as.numeric(cov["on_target_coverage_duplex"]), 0)
+})
+
+test_that("calculate_on_target_coverage: epos used when available", {
+  rbs <- data.frame(
+    chrom = c("chr1"),
+    pos   = c(100),
+    mpos  = c(200),
+    epos  = c(250),
+    x = c(3),
+    y = c(3)
+  )
+  grx <- GenomicRanges::GRanges("chr1", IRanges::IRanges(200, 400))
+  # With epos=250, the range [100,250] overlaps [200,400] -> on-target
+  cov_with_epos <- calculate_on_target_coverage(rbs, rlen = 100, skips = 0,
+                                                grx = grx, min_reads = c(4, 2, 2))
+  # Without epos, fallback end = pos + 2*(rlen-skips) = 100 + 200 = 300 -> also overlaps
+  rbs_no_epos <- rbs[, c("chrom","pos","mpos","x","y")]
+  cov_no_epos <- calculate_on_target_coverage(rbs_no_epos, rlen = 100, skips = 0,
+                                              grx = grx, min_reads = c(4, 2, 2))
+  # both should find the bundle on-target
+  expect_true(cov_with_epos["on_target_coverage_raw"] > 0)
+  expect_true(cov_no_epos["on_target_coverage_raw"] > 0)
+})
+
+test_that("calculate_on_target_coverage errors on invalid rlen/skips", {
+  rbs <- data.frame(chrom="chr1", pos=100, mpos=200, x=2, y=2)
+  grx <- GenomicRanges::GRanges("chr1", IRanges::IRanges(50, 300))
+  expect_error(calculate_on_target_coverage(rbs, rlen = -1, skips = 0, grx = grx, min_reads = c(4,2,2)))
+  expect_error(calculate_on_target_coverage(rbs, rlen = 10,  skips = 10, grx = grx, min_reads = c(4,2,2)))
+})
+
+# ------------------------------------------------------------------------------
 # calculate_gc
 # ------------------------------------------------------------------------------
 
@@ -449,5 +537,11 @@ test_that("process_data adds on_target rates when --target_bed is provided", {
 
   expect_true(isTRUE(res$success))
   out_tbl <- fread(out)
-  expect_true(all(c("on_target_rate_raw", "on_target_rate_duplex") %in% out_tbl$metric))
+  expect_true(all(c(
+    "on_target_rate_raw",
+    "on_target_rate_duplex",
+    "on_target_coverage_raw",
+    "on_target_coverage_duplex",
+    "on_target_duplex_ratio"
+  ) %in% out_tbl$metric))
 })

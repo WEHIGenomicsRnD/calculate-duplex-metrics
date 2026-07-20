@@ -99,6 +99,83 @@ calculate_missed_fraction <- function(rbs) {
   total_missed / den
 }
 
+calculate_on_target_coverage <- function(rbs, rlen, skips, grx, min_reads) {
+  # Validate rlen/skips
+  if (is.na(rlen) || rlen <= 0) stop("rlen must be positive")
+  if (is.na(skips) || skips < 0) stop("skips must be >= 0")
+  if (skips >= rlen) stop("skips must be < rlen")
+
+  # Validate rbs input
+  required_cols <- c("chrom", "pos", "mpos", "x", "y")
+  missing_cols <- setdiff(required_cols, names(rbs))
+  if (length(missing_cols) > 0) {
+    stop(
+      "calculate_coverage requires columns: ",
+      paste(required_cols, collapse = ", "),
+      ". Missing: ",
+      paste(missing_cols, collapse = ", ")
+    )
+  }
+
+  # Handle min_reads input
+  if (is.null(min_reads)) {
+    min_reads <- c(4L, 2L, 2L)
+  }
+  if (is.character(min_reads)) {
+    tokens <- unlist(strsplit(gsub(",", " ", min_reads), "\\s+"))
+    tokens <- tokens[nzchar(tokens)]
+    min_reads <- as.integer(tokens)
+  } else {
+    min_reads <- as.integer(min_reads)
+  }
+  if (length(min_reads) != 3 || anyNA(min_reads) || any(min_reads < 0)) {
+    stop("--min_reads must contain exactly three non-negative integers.")
+  }
+
+  # epos is used only for overlap detection; usable bases are always
+  # 2*(rlen-skips) per bundle (one read pair = forward + reverse read)
+  epos_available <- "epos" %in% names(rbs)
+  epos <- if (epos_available) rbs$epos else rbs$pos + ((rlen - skips) * 2)
+
+  usable_per_bundle <- as.double(rlen - skips) * 2.0
+
+  # Total bases in the target capture region
+  target_area <- as.double(sum(GenomicRanges::width(grx)))
+  if (target_area == 0) {
+    return(c(raw_coverage = NA_real_, duplex_coverage = NA_real_))
+  }
+
+  # Find on-target read bundles (any overlap with target regions)
+  rbx <- GenomicRanges::GRanges(
+    seqnames = rbs$chrom,
+    ranges = IRanges::IRanges(start = rbs$pos, end = epos)
+  )
+  on_target_idx <- unique(
+    S4Vectors::queryHits(GenomicRanges::findOverlaps(rbx, grx))
+  )
+  # Raw coverage: each read pair (x + y) contributes usable_per_bundle bases
+  raw_bases_on_target <- usable_per_bundle *
+    as.double(sum(rbs$x[on_target_idx] + rbs$y[on_target_idx]))
+  raw_coverage <- raw_bases_on_target / target_area
+
+  # Duplex coverage: apply min_reads filter, then each passing bundle
+  # collapses x/y into one duplex fragment contributing usable_per_bundle bases
+  ss1 <- rbs$x >= min_reads[[2]] & rbs$y >= min_reads[[3]]
+  ss2 <- rbs$x >= min_reads[[3]] & rbs$y >= min_reads[[2]]
+  duplex_pass <- rbs$x + rbs$y >= min_reads[[1]] & (ss1 | ss2)
+
+  n_duplex_on_target <- as.double(
+    length(intersect(which(duplex_pass), on_target_idx))
+  )
+  duplex_coverage <- (n_duplex_on_target * usable_per_bundle) / target_area
+
+  c(
+    on_target_coverage_raw = raw_coverage,
+    on_target_coverage_duplex = duplex_coverage,
+    on_target_duplex_ratio = raw_coverage / duplex_coverage
+  )
+}
+
 # Calculate on-target rate from read info and a GRanges object
 # corresponding to target regions. It is approximate because we
 # don't know the actual end of the read from the rinfo file.
@@ -726,6 +803,16 @@ calculate_metrics_selected <- function(
       rlen = rlen,
       min_reads = min_reads
     )
+
+    # on-target coverage metrics: raw (all reads) and duplex (after min_reads)
+    covs <- calculate_on_target_coverage(
+      rbs,
+      rlen = rlen,
+      skips = skips,
+      grx = target_regions,
+      min_reads = min_reads
+    )
+    metrics <- c(metrics, as.list(covs))
   }
 
   as.data.frame(metrics, check.names = FALSE)

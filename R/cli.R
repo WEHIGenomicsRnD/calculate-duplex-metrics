@@ -20,7 +20,7 @@ main <- function() {
   args <- parse_arguments()
 
   # Run metric computation
-  res <- process_data(
+  res <- process_data( # nolint
     input     = args$input,
     output    = args$output,
     sample    = args$sample,
