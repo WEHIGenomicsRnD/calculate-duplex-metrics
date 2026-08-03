@@ -122,7 +122,7 @@ docker run --rm \
   calculate-duplex-metrics \
   calc-duplex-metrics \
   --input data/test.rinfo \
-  --output out/metrics.csv
+  --output metrics.csv
 ```
 
   To process a BAM file directly:
@@ -131,7 +131,7 @@ docker run --rm \
   calc-duplex-metrics \
     --input data/test.bam \
     --input_format bam \
-    --output out/bam_metrics.csv
+    --output bam_metrics.csv
   ```
 
 -   `-v "$(pwd)/data:/app/data"`: This "mounts" your local `data` directory into the `/app/data` directory inside the container, so the script can find the input file.
@@ -165,7 +165,7 @@ After restoring the environment, you can run the script directly from your termi
 ```bash
 Rscript main.R \
   --input data/test.rinfo \
-  --output out/metrics.csv
+  --output metrics.csv
 ```
 
 To process a BAM file directly:
@@ -174,7 +174,7 @@ To process a BAM file directly:
 Rscript main.R \
   --input data/test.bam \
   --input_format bam \
-  --output out/bam_metrics.csv
+  --output bam_metrics.csv
 ```
 
 ### Option C: Local Installation with `devtools`
@@ -212,7 +212,7 @@ After installing the dependencies, you can run the script directly from your ter
 ```bash
 Rscript main.R \
   --input data/test.rinfo \
-  --output out/metrics.csv
+  --output metrics.csv
 ```
 
 To process a BAM file directly:
@@ -221,7 +221,7 @@ To process a BAM file directly:
 Rscript main.R \
   --input data/test.bam \
   --input_format bam \
-  --output out/bam_metrics.csv
+  --output bam_metrics.csv
 ```
 
 ### Option D: Using Conda
@@ -268,7 +268,7 @@ Basic usage is as follows:
 ```bash
 calc-duplex-metrics \
   --input data/test.rinfo \
-  --output out/metrics.csv
+  --output metrics.csv
 ```
 
 For fgbio duplex family size input, set `--input_format` explicitly:
@@ -277,7 +277,7 @@ For fgbio duplex family size input, set `--input_format` explicitly:
 calc-duplex-metrics \
   --input data/NanoMB1Rep1.duplex_seq_metrics.duplex_family_sizes.txt \
   --input_format fgbio \
-  --output out/fgbio_metrics.csv \
+  --output fgbio_metrics.csv \
   --metrics frac_singletons,efficiency,drop_out_rate,family
 ```
 
@@ -296,7 +296,7 @@ in this repository. Any compatible reference genome may be used.
 ``` bash
 Rscript main.R \
   --input data/NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001.txt \
-  --output out/default_with_gc.csv \
+  --output default_with_gc.csv \
   --ref_fasta ref/Escherichia_coli_ATCC_10798.fasta
 ```
 
@@ -305,7 +305,7 @@ Rscript main.R \
 ``` bash
 Rscript main.R \
   --input data/NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001.txt \
-  --output out/test_selected_metrics.csv \
+  --output test_selected_metrics.csv \
   --metrics efficiency,drop_out_rate
 ```
 Note: when listing multiple metrics, either omit spaces (efficiency,drop_out_rate) or quote the argument ("efficiency, drop_out_rate").
@@ -315,7 +315,7 @@ Note: when listing multiple metrics, either omit spaces (efficiency,drop_out_rat
 ``` bash
 Rscript main.R \
   --input data/NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001.txt \
-  --output out/test_family_metrics.csv \
+  --output test_family_metrics.csv \
   --metrics family
 ```
 
@@ -324,7 +324,7 @@ Rscript main.R \
 ``` bash
 Rscript main.R \
   --input data/NanoMB1Rep1_HJK2GDSX3_CGGCTAAT-CTCGTTCT_L001.txt \
-  --output out/test_mixed_metrics.csv \
+  --output test_mixed_metrics.csv \
   --metrics efficiency,family
 ```
 
@@ -333,7 +333,7 @@ Rscript main.R \
 ``` bash
 Rscript main.R \
   --input data/a.txt data/b.txt \
-  --output out/all_samples_metrics.csv \
+  --output all_samples_metrics.csv \
   --metrics family \
   --cores 2
 ```
@@ -344,7 +344,7 @@ Rscript main.R \
 Rscript main.R \
   --input data/test.bam \
   --input_format bam \
-  --output out/bam_metrics.csv \
+  --output bam_metrics.csv \
   --cores 4 \
   --sort_mem 8G \
   --bam_chunk_size 2000000

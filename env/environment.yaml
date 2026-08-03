@@ -15,5 +15,6 @@ dependencies:
   - bioconductor-biostrings
   - bioconductor-genomicranges
   - bioconductor-iranges
+  - bioconductor-genomicalignments
   - r-testthat
   - r-r.utils
