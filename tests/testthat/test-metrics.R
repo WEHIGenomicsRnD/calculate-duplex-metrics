@@ -65,8 +65,8 @@ test_that("calculate_family_stats returns named vector with expected names", {
   expect_type(stats, "double")
   expect_named(stats, c("total_families", "family_mean", "family_median",
                         "family_max", "families_gt1", "single_families",
-                        "paired_families", "paired_and_gt1",
-                        "frac_singletons"))
+                        "paired_families", "unpaired_families",
+                        "paired_and_gt1", "frac_singletons"))
   expect_equal(tail(names(stats), 1), "frac_singletons")
 })
 
@@ -77,6 +77,8 @@ test_that("calculate_family_stats returns correct known values", {
   expect_equal(stats[["family_max"]], 42)
   expect_equal(stats[["single_families"]], 1943)
   expect_equal(stats[["paired_families"]], 6008)
+  # unpaired >= single_families (unpaired allows any count > 0 on one strand)
+  expect_true(stats[["unpaired_families"]] >= stats[["single_families"]])
 })
 
 test_that("fgbio family stats match expanded family-size input", {
@@ -443,6 +445,8 @@ test_that("calculate_metrics_selected supports fgbio duplex family size input", 
   expect_equal(res$families_gt1[[1]], 16426257)
   expect_equal(res$single_families[[1]], 1601609)
   expect_equal(res$paired_families[[1]], 9892573)
+  expect_true(!is.null(res$unpaired_families[[1]]))
+  expect_true(res$unpaired_families[[1]] >= res$single_families[[1]])
   expect_equal(res$paired_and_gt1[[1]], 8206722)
   expect_equal(tail(colnames(res), 1), "frac_singletons")
 })
@@ -513,6 +517,7 @@ test_that("process_data includes frac_singletons for fgbio all metrics", {
     "families_gt1",
     "single_families",
     "paired_families",
+    "unpaired_families",
     "paired_and_gt1"
   ) %in% out_tbl$metric))
   expect_equal(tail(out_tbl$metric, 1), "frac_singletons")

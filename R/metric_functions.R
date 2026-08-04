@@ -50,6 +50,7 @@ calculate_family_stats <- function(rbs) {
     families_gt1 = sum(rbs$x > 1 | rbs$y > 1),
     single_families = sum(rbs$x == 1 & rbs$y == 0 | rbs$x == 0 & rbs$y == 1),
     paired_families = sum(rbs$x > 0 & rbs$y > 0),
+    unpaired_families = sum(rbs$x > 0 & rbs$y == 0 | rbs$x == 0 & rbs$y > 0),
     paired_and_gt1 = sum(rbs$x > 1 & rbs$y > 1),
     frac_singletons = calculate_singletons(rbs)
   )
@@ -568,6 +569,10 @@ calculate_family_stats_fgbio <- function(metrics_tbl) {
     paired_families = sum(metrics_tbl$count[
       metrics_tbl$ab_size > 0 & metrics_tbl$ba_size > 0
     ]),
+    unpaired_families = sum(metrics_tbl$count[
+      (metrics_tbl$ab_size > 0 & metrics_tbl$ba_size == 0) |
+        (metrics_tbl$ab_size == 0 & metrics_tbl$ba_size > 0)
+    ]),
     paired_and_gt1 = sum(metrics_tbl$count[
       metrics_tbl$ab_size > 1 & metrics_tbl$ba_size > 1
     ]),
@@ -647,8 +652,8 @@ calculate_missed_frac_fgbio <- function(metrics_tbl) {
   gc = c("gc_single", "gc_both", "gc_deviation"),
   family = c(
     "total_families", "family_mean", "family_median", "family_max",
-    "families_gt1", "single_families", "paired_families", "paired_and_gt1",
-    "frac_singletons"
+    "families_gt1", "single_families", "paired_families", "unpaired_families",
+    "paired_and_gt1", "frac_singletons"
   )
 )
 

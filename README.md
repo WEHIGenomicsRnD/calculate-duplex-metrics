@@ -24,6 +24,7 @@ Family stats
 - families_gt1
 - single_families
 - paired_families
+- unpaired_families
 - paired_and_gt1
 - frac_singletons
 
