@@ -33,7 +33,8 @@ main <- function() {
     cores     = args$cores,
     input_format = args$input_format,
     sort_mem  = args$sort_mem,
-    bam_chunk_size = args$bam_chunk_size
+    bam_chunk_size = args$bam_chunk_size,
+    rinfo_output = args$rinfo_output
   )
 
 
@@ -113,6 +114,11 @@ parse_arguments <- function() {
                               "chunk when --input_format bam (default:",
                               "2000000). Lower this to reduce memory use",
                               "on very large BAM files."))
+  p$add_argument("--rinfo_output", default = NULL,
+                 help = paste("Optional path to save the intermediate rinfo",
+                              "table when --input_format bam. If omitted,",
+                              "a temporary file is used and deleted on exit.",
+                              "Supports .txt or .txt.gz."))
   p$add_argument("--metrics", default = "all",
                  help = paste("Comma-separated metric groups or metric names.",
                               "Default: all. Groups: gc,family.",

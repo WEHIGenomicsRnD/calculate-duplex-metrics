@@ -165,3 +165,57 @@ test_that("process_data rejects multiple BAM inputs (phase-1 restriction)", {
   expect_false(isTRUE(res$success))
   expect_match(res$error, "exactly one", ignore.case = TRUE)
 })
+
+test_that("process_data saves rinfo to --rinfo_output when specified", {
+  skip_if_not(nzchar(Sys.which("sort")), "GNU sort not available")
+
+  out_csv   <- withr::local_tempfile(fileext = ".csv")
+  rinfo_out <- withr::local_tempfile(fileext = ".txt.gz")
+
+  res <- process_data(
+    input        = bam_fixture_path,
+    output       = out_csv,
+    rlen         = 151,
+    skips        = 5,
+    metrics      = "efficiency",
+    input_format = "bam",
+    sort_mem     = "1G",
+    bam_chunk_size = 500000,
+    rinfo_output = rinfo_out
+  )
+
+  expect_true(isTRUE(res$success))
+  # file should exist and NOT have been deleted after process_data returns
+  expect_true(file.exists(rinfo_out))
+  saved <- fread(rinfo_out)
+  expect_true(all(c("chrom", "pos", "x", "y") %in% names(saved)))
+  expect_gt(nrow(saved), 0L)
+})
+
+test_that("process_data deletes temp rinfo when --rinfo_output not specified", {
+  skip_if_not(nzchar(Sys.which("sort")), "GNU sort not available")
+
+  out_csv   <- withr::local_tempfile(fileext = ".csv")
+  captured_path <- NULL
+
+  # wrap process_data to capture the temp rinfo path via generate_read_info_from_bam
+  # instead, we check indirectly: tempdir should have no leftover rinfo files after the call
+  tmpfiles_before <- list.files(tempdir(), pattern = "rinfo_from_bam_", full.names = TRUE)
+
+  res <- process_data(
+    input        = bam_fixture_path,
+    output       = out_csv,
+    rlen         = 151,
+    skips        = 5,
+    metrics      = "efficiency",
+    input_format = "bam",
+    sort_mem     = "1G",
+    bam_chunk_size = 500000
+    # no rinfo_output -> temp file should be cleaned up
+  )
+
+  expect_true(isTRUE(res$success))
+  tmpfiles_after <- list.files(tempdir(), pattern = "rinfo_from_bam_", full.names = TRUE)
+  new_files <- setdiff(tmpfiles_after, tmpfiles_before)
+  expect_length(new_files, 0L)
+})

@@ -407,6 +407,11 @@ Optional:
       --bam_chunk_size  Number of BAM records read per chunk in BAM mode
                         (default: 2000000)
 
+      --rinfo_output Optional path to save the intermediate rinfo table when
+                     using --input_format bam. If omitted, a temporary file
+                     is used and deleted automatically. Supports .txt or
+                     .txt.gz.
+
 
 ```
 Note: when listing multiple metrics, either omit spaces (efficiency,drop_out_rate) or quote the argument ("efficiency, drop_out_rate").

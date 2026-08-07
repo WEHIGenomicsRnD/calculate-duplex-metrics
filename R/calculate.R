@@ -240,7 +240,8 @@ process_data <- function(
   cores = 1,
   input_format = "rinfo",
   sort_mem = "4G",
-  bam_chunk_size = 2000000L
+  bam_chunk_size = 2000000L,
+  rinfo_output = NULL
 ) {
   # validate input
   if (is.null(input) || length(input) == 0) {
@@ -282,6 +283,8 @@ process_data <- function(
     bam_res <- tryCatch(
       generate_read_info_from_bam(
         bam_file = input[1],
+        output = if (!is.null(rinfo_output) && nzchar(rinfo_output))
+                   rinfo_output else NULL,
         chunk_size = bam_chunk_size,
         cores = cores,
         sort_mem = sort_mem,
@@ -296,7 +299,11 @@ process_data <- function(
     }
 
     bam_tmp_file <- bam_res$output
-    on.exit(if (!is.null(bam_tmp_file)) unlink(bam_tmp_file), add = TRUE)
+    # only auto-delete if the user did not supply an explicit rinfo output path
+    user_supplied_rinfo <- !is.null(rinfo_output) && nzchar(rinfo_output)
+    if (!user_supplied_rinfo) {
+      on.exit(if (!is.null(bam_tmp_file)) unlink(bam_tmp_file), add = TRUE)
+    }
 
     # derive a sample name from the original BAM filename before we
     # overwrite `input` with the temporary rinfo path below
